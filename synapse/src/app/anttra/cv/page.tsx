@@ -108,7 +108,6 @@ export default function CVPage() {
   const [ghUser,   setGhUser]   = useState<GHUser | null>(null);
   const [ghRepos,  setGhRepos]  = useState<GHRepo[]>([]);
   const [ghEvents, setGhEvents] = useState<GHEvent[]>([]);
-  const [photoSrc, setPhotoSrc] = useState<string | null>(null);
   const [ghError,  setGhError]  = useState(false);
 
   useEffect(() => {
@@ -121,10 +120,6 @@ export default function CVPage() {
       .catch(() => setGhError(true));
   }, []);
 
-  useEffect(() => {
-    if (!photoSrc && ghUser?.avatar_url) setPhotoSrc(ghUser.avatar_url);
-  }, [ghUser, photoSrc]);
-
   return (
     <main style={{ backgroundColor: C.bg, color: C.text, minHeight: '100vh', padding: '4rem 5vw', ...mono }}>
 
@@ -132,11 +127,11 @@ export default function CVPage() {
       <header style={{ marginBottom: '3rem', borderBottom: `1px solid ${C.border}`, paddingBottom: '2.5rem' }}>
         <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' as const }}>
 
-          {/* Photo — GitHub avatar */}
-          {photoSrc && (
-            <img src={photoSrc} alt="profile"
-              style={{ width: 130, height: 130, objectFit: 'cover' as const, border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }} />
-          )}
+          <img
+            src={`https://github.com/${GITHUB_HANDLE}.png`}
+            alt="profile"
+            style={{ width: 130, height: 130, objectFit: 'cover' as const, border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}
+          />
 
           {/* Name */}
           <div style={{ flex: 1 }}>
