@@ -345,9 +345,9 @@ function buildSky(lowPower: boolean) {
 }
 
 /* ── init / loop ── */
-function init({ canvas, w, h, dpr, lowPower, staticFrame }: {
+function init({ canvas, w, h, dpr, lowPower }: {
   canvas: OffscreenCanvas; w: number; h: number; dpr: number;
-  lowPower: boolean; staticFrame: boolean;
+  lowPower: boolean;
 }) {
   renderer = new THREE.WebGLRenderer({
     canvas, antialias: false, alpha: true, powerPreference: 'high-performance',
@@ -397,15 +397,8 @@ function init({ canvas, w, h, dpr, lowPower, staticFrame }: {
 
   };
 
-  if (staticFrame) {
-    // reduced motion: render one composed frame, no loop
-    for (const u of timeUniforms) u.value = t;
-    for (const u of drawUniforms) u.value = 0.72;
-    renderer.render(scene, camera);
-  } else {
-    drawFrame(0);
-    previousTime = undefined;
-  }
+  drawFrame(0);
+  previousTime = undefined;
   postMessage({type:'ready'});
 }
 

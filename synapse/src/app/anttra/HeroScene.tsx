@@ -17,7 +17,6 @@ export default function HeroScene() {
     const dpr = Math.min(window.devicePixelRatio, lowPower ? 1 : 1.5);
     const w = mount.clientWidth;
     const h = mount.clientHeight;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const canvas = document.createElement('canvas');
     canvas.style.cssText = 'width:100%;height:100%;display:block;';
@@ -32,7 +31,7 @@ export default function HeroScene() {
     const worker = new Worker(new URL('./heroWorker.ts', import.meta.url));
 
 
-    let active = !reduced;
+    let active = true;
     let waiting = true;
     let frameId = 0;
     function schedule() {
@@ -45,7 +44,7 @@ export default function HeroScene() {
     }
     worker.onmessage = () => { waiting = false; schedule(); };
     worker.postMessage(
-      { type: 'init', canvas: offscreen, w, h, dpr, lowPower, staticFrame: reduced },
+      { type: 'init', canvas: offscreen, w, h, dpr, lowPower },
       [offscreen],
     );
 
