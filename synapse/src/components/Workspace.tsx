@@ -22,7 +22,7 @@ export default function Workspace({
         </Link>
         <nav aria-label="Main navigation">
           {[
-            ["showcase", "/anttra", "Showcase"],
+            ["showcase", "/anttra/showcase", "Showcase"],
             ["dashboard", "/anttra/dashboard", "Dashboard"],
             ["about", "/anttra/cv", "About & CV"],
           ].map(([id, href, label]) => (

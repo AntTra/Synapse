@@ -49,7 +49,7 @@ export default function AboutPage() {
             Browser experiments in live transit data, planetary rendering, and
             facial landmark detection.
           </p>
-          <Link className="text-link" href="/anttra#work">
+          <Link className="text-link" href="/anttra/showcase#work">
             View selected work
           </Link>
         </section>
