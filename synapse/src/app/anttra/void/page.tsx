@@ -259,8 +259,8 @@ export default function VoidPage() {
 
       <nav className="fixed bottom-12 left-1/2 -translate-x-1/2 z-50">
         <Link href="/anttra"
-              className="text-xs italic tracking-[0.4em] opacity-20 hover:opacity-100 hover:text-white transition-all duration-1000">
-          I want to return
+              className="experiment-link">
+          ← anttra
         </Link>
       </nav>
 

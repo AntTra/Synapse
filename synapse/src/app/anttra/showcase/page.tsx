@@ -13,52 +13,11 @@ export const metadata: Metadata = {
 export default function AnttraPage() {
   return (
     <Workspace active="showcase">
-      <section className="portfolio-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Anton Tran / Engineering & exploration</p>
-          <h1>
-            Making sense
-            <br />
-            of <em>moving things.</em>
-          </h1>
-          <p className="hero-description">
-            Cybernetics, robotics, and computer vision.
-            <br />I build interactive systems that make complex data easier to
-            explore.
-          </p>
-          <div className="actions">
-            <a className="button primary" href="#work">
-              Explore the work
-            </a>
-            <Link className="button" href="/anttra/dashboard">
-              Open dashboard
-            </Link>
-          </div>
-          <p className="hero-footnote">Based in Trondheim · Studying at NTNU</p>
-        </div>
-        <div className="signal-art" aria-hidden="true">
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="orbit orbit-three" />
-          <div className="signal-core" />
-          <span className="signal-label">PERCEPTION / SYSTEMS / MOTION</span>
-          <svg viewBox="0 0 500 400">
-            <path
-              className="measurement"
-              d="M0 310L55 280L90 295L130 220L165 242L205 155L250 183L290 115L330 133L380 65L425 90L500 20"
-            />
-            <path
-              className="estimate"
-              d="M0 320C100 300 110 250 180 215S280 140 340 115S430 60 500 35"
-            />
-          </svg>
-        </div>
-      </section>
       <section id="work" className="work-section">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Selected work</p>
-            <h2>Ideas you can interact with.</h2>
+            <p className="eyebrow">Anton Tran / Portfolio</p>
+            <h1>Selected work</h1>
           </div>
           <span className="muted">Three browser experiments</span>
         </div>

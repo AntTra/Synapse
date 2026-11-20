@@ -22,7 +22,7 @@ export default function GlobePage() {
   return (
     <div className="w-full h-screen flex flex-col md:flex-row">
       <div className="flex-shrink-0 border-b md:border-b-0 md:border-r border-zinc-800 p-3 md:w-64 overflow-y-auto max-h-[40vh] md:max-h-none">
-        <Link href="/anttra" className="block mb-3 font-mono text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+        <Link href="/anttra" className="experiment-link mb-3">
           ← anttra
         </Link>
         <Accordion.Root

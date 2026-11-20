@@ -25,15 +25,15 @@ type ShowcaseItem = {
 };
 
 const showcase: ShowcaseItem[] = [
-  { label: 'CV',            sub: 'BIOGRAPHY',             href: '/anttra/cv',        accent: '#d0c090', live: true,  cssBg: 'linear-gradient(135deg, #0c0c10 0%, #181820 100%)' },
-  { label: 'BUSROUTES',     sub: 'REAL-TIME TRANSIT MAP', href: '/anttra/busroutes', accent: '#4488ff', live: true,  imgSrc: '/busroutes.png' },
-  { label: 'VERTEX GLOBES', sub: '3D · THREE.JS',         href: '/anttra/globe',     accent: '#5599ff', live: true,  imgSrc: '/globe.png' },
-  { label: 'FACE MESH',     sub: 'ML · VISION',           href: '/anttra/facemesh',  accent: '#cc44ff', live: true,  imgSrc: '/facemesh.png' },
-  { label: 'MASTER THESIS', sub: 'RL-MPC · AUTONOMY',     href: '/anttra/master',    accent: '#e08030', live: false, cssBg: 'linear-gradient(160deg, #120e06 0%, #1e1508 100%)' },
-  { label: 'LANDMARK CTRL', sub: 'HAND TRACKING',         href: '/anttra/landmark',  accent: '#66aaff', live: false, cssBg: 'radial-gradient(ellipse at 70% 30%, #040e1a 0%, #040404 70%)' },
+  { label: 'CV',            sub: 'BIOGRAPHY',             href: '/anttra/cv',        accent: '#8fd4ff', live: true,  cssBg: 'linear-gradient(135deg, #0c0c10 0%, #181820 100%)' },
+  { label: 'BUSROUTES',     sub: 'REAL-TIME TRANSIT MAP', href: '/anttra/busroutes', accent: '#8fd4ff', live: true,  imgSrc: '/busroutes.png' },
+  { label: 'VERTEX GLOBES', sub: '3D · THREE.JS',         href: '/anttra/globe',     accent: '#8fd4ff', live: true,  imgSrc: '/globe.png' },
+  { label: 'FACE MESH',     sub: 'ML · VISION',           href: '/anttra/facemesh',  accent: '#8fd4ff', live: true,  imgSrc: '/facemesh.png' },
+  { label: 'MASTER THESIS', sub: 'RL-MPC · AUTONOMY',     href: '/anttra/master',    accent: '#f0a050', live: false, cssBg: 'linear-gradient(160deg, #120e06 0%, #1e1508 100%)' },
+  { label: 'LANDMARK CTRL', sub: 'HAND TRACKING',         href: '/anttra/landmark',  accent: '#f0a050', live: false, cssBg: 'radial-gradient(ellipse at 70% 30%, #040e1a 0%, #040404 70%)' },
 ];
 
-const BG = '#0b0f16';
+const BG = 'var(--portfolio-bg)';
 const MIN_LOADING_MS = 800;
 
 export default function AnttraPage() {
@@ -295,8 +295,8 @@ export default function AnttraPage() {
             <West sx={{ fontSize: 10 }} /> return
           </Link>
           <nav aria-label="Portfolio" className="flex gap-5 font-mono text-sm text-white/80">
-            <Link href="/anttra/showcase" className="hover:underline">Showcase</Link>
-            <Link href="/anttra/dashboard" className="hover:underline">Dashboard</Link>
+            <Link href="/anttra/showcase" className="experiment-link">Showcase</Link>
+            <Link href="/anttra/dashboard" className="experiment-link">Dashboard</Link>
           </nav>
         </div>
 

@@ -34,10 +34,10 @@ const delayMins = (c: Call)     => Math.round((new Date(c.expectedDepartureTime)
 const fmt       = (iso: string) => new Date(iso).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' });
 const fmtDur    = (s: number)   => `${Math.floor(s / 60)} min`;
 
-const MONO: React.CSSProperties = { fontFamily: 'monospace' };
+const MONO: React.CSSProperties = { fontFamily: 'var(--portfolio-font)' };
 
 const GLASS: React.CSSProperties = {
-  background: 'rgba(28,28,32,0.52)',
+  background: 'rgba(18,25,35,0.84)',
   backdropFilter: 'blur(22px) saturate(150%)',
   WebkitBackdropFilter: 'blur(22px) saturate(150%)',
   border: '1px solid rgba(255,255,255,0.07)',
@@ -372,7 +372,7 @@ export default function BusRoutesPage() {
 
         {/* header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
-          <Link href="/anttra" style={{ ...MONO, fontSize: '0.7rem', opacity: 0.38, color: '#d0d0d0', letterSpacing: '0.2em', textTransform: 'uppercase' }}>← anttra</Link>
+          <Link href="/anttra" className="experiment-link">← anttra</Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {lastUpdated && (
               <span style={{ ...MONO, fontSize: '0.6rem', opacity: 0.3 }}>

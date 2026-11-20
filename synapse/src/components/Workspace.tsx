@@ -15,10 +15,7 @@ export default function Workspace({
       </a>
       <header className="site-header">
         <Link className="brand" href="/anttra">
-          <span className="brand-mark" aria-hidden="true">
-            s.
-          </span>
-          synapse<span className="brand-owner"> / anttra</span>
+          anttra<span className="brand-owner"> / synapse</span>
         </Link>
         <nav aria-label="Main navigation">
           {[

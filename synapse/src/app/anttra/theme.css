@@ -1,0 +1,23 @@
+.anttra-theme {
+  --portfolio-bg: #0b0f16;
+  --portfolio-surface: #121923;
+  --portfolio-text: #dde3ea;
+  --portfolio-muted: #a3b0be;
+  --portfolio-line: #303d4a;
+  --portfolio-blue: #8fd4ff;
+  --portfolio-amber: #f0a050;
+  --portfolio-font: var(--font-geist-mono), monospace;
+  color-scheme: dark;
+  background: var(--portfolio-bg);
+  color: var(--portfolio-text);
+  font-family: var(--portfolio-font);
+}
+.anttra-theme .experiment-link {
+  display: inline-block;
+  padding: .5rem 0;
+  color: var(--portfolio-blue);
+  font: 500 .8rem/1.5 var(--portfolio-font);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.anttra-theme .experiment-link:is(:hover, :focus-visible) { text-decoration: underline; }

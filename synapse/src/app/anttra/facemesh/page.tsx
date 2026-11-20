@@ -251,15 +251,15 @@ export default function FaceMeshPage() {
   return (
     <main
       onClick={handleClick}
-      style={{ backgroundColor: '#000', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace' }}
+      style={{ backgroundColor: 'var(--portfolio-bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace' }}
     >
       <nav style={{ position: 'fixed', top: '4rem', left: '2rem', zIndex: 10 }}>
         <Link
           href="/anttra"
           onClick={e => e.stopPropagation()}
-          style={{ fontFamily: 'monospace', fontSize: '0.625rem', letterSpacing: '0.3em', opacity: 0.5, color: '#fff', textDecoration: 'none' }}
+          className="experiment-link"
         >
-          ← return
+          ← anttra
         </Link>
       </nav>
       <div style={{ position: 'relative', width: '100%', maxWidth: 720 }}>
