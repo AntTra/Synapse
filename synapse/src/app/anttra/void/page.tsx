@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useMemo, useEffect } from 'react';
-import Link from 'next/link';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 
@@ -257,12 +256,7 @@ export default function VoidPage() {
         </h1>
       </div>
 
-      <nav className="fixed bottom-12 left-1/2 -translate-x-1/2 z-50">
-        <Link href="/anttra"
-              className="experiment-link">
-          ← anttra
-        </Link>
-      </nav>
+
 
       {/* grain */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.06] mix-blend-multiply z-50"

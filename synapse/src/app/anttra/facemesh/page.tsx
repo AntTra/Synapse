@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 
 const CDN = (f: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`;
 const VW = 640, VH = 480;
@@ -253,15 +252,7 @@ export default function FaceMeshPage() {
       onClick={handleClick}
       style={{ backgroundColor: 'var(--portfolio-bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace' }}
     >
-      <nav style={{ position: 'fixed', top: '4rem', left: '2rem', zIndex: 10 }}>
-        <Link
-          href="/anttra"
-          onClick={e => e.stopPropagation()}
-          className="experiment-link"
-        >
-          ← anttra
-        </Link>
-      </nav>
+
       <div style={{ position: 'relative', width: '100%', maxWidth: 720 }}>
         <video ref={videoRef} style={{ display: 'none' }} playsInline muted />
         <canvas ref={canvasRef} style={{ width: '100%', display: 'block', cursor: 'pointer' }} />

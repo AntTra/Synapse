@@ -2,10 +2,8 @@ import Link from "next/link";
 import "./workspace.css";
 
 export default function Workspace({
-  active,
   children,
 }: {
-  active: "showcase" | "dashboard" | "about";
   children: React.ReactNode;
 }) {
   return (
@@ -13,29 +11,6 @@ export default function Workspace({
       <a className="skip-link" href="#content">
         Skip to content
       </a>
-      <header className="site-header">
-        <Link className="brand" href="/anttra">
-          anttra<span className="brand-owner"> / synapse</span>
-        </Link>
-        <nav aria-label="Main navigation">
-          {[
-            ["showcase", "/anttra/showcase", "Showcase"],
-            ["dashboard", "/anttra/dashboard", "Dashboard"],
-            ["about", "/anttra/cv", "About & CV"],
-          ].map(([id, href, label]) => (
-            <Link
-              key={id}
-              href={href}
-              aria-current={active === id ? "page" : undefined}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
-        <a className="header-github" href="https://github.com/AntTra">
-          GitHub
-        </a>
-      </header>
       <main id="content">{children}</main>
       <footer className="site-footer">
         <span>Anton Tran · Trondheim, Norway</span>

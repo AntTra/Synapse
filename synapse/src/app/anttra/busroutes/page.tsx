@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import {
   fetchDepartures, searchStop, fetchTrip,
   type DepartureData, type Suggestion, type Call, type QuayData, type TripPattern, type Leg,
@@ -66,7 +65,7 @@ function minsStyle(mins: number): React.CSSProperties {
     ...MONO,
     fontSize: '0.9rem',
     fontWeight: 600,
-    color: mins === 0 ? '#ffffff' : mins <= 5 ? '#e0e8ff' : mins <= 15 ? '#d0d0d0' : '#d0d0d044',
+    color: mins === 0 ? '#ffffff' : mins <= 5 ? '#e0e8ff' : mins <= 15 ? '#d0d0d0' : 'var(--portfolio-muted)',
     minWidth: '4.5rem',
     textAlign: 'right',
   };
@@ -76,17 +75,7 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
   return (
     <button
       onClick={onClick}
-      style={{
-        ...MONO, fontSize: '0.72rem',
-        padding: '0.22rem 0.6rem',
-        border: `1px solid ${active ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'}`,
-        borderRadius: 4,
-        background: active ? 'rgba(255,255,255,0.07)' : 'transparent',
-        backdropFilter: active ? 'blur(8px)' : 'none',
-        color: active ? '#d0d0d0' : '#d0d0d030',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-      }}
+      className="portfolio-control" aria-pressed={active}
     >
       {label}
     </button>
@@ -192,7 +181,7 @@ function StopInput({ placeholder, value, onChange, suggestions, onSelect, onClea
           }}
         />
         {value && (
-          <button onClick={onClear} style={{ ...MONO, background: 'none', border: 'none', color: '#d0d0d040', cursor: 'pointer', padding: '0 0.6rem', fontSize: '0.8rem' }}>×</button>
+          <button aria-label="Clear stop" onClick={onClear} style={{ ...MONO, background: 'none', border: 'none', color: '#d0d0d040', cursor: 'pointer', padding: '0 0.6rem', fontSize: '0.8rem' }}>×</button>
         )}
       </div>
       {open && suggestions.length > 0 && (
@@ -349,30 +338,12 @@ export default function BusRoutesPage() {
   });
 
   return (
-    <main style={{ backgroundColor: '#1c1c20', color: '#d0d0d0', minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-
-      {/* ambient colour blobs */}
-      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
-        <div style={{ position: 'absolute', inset: 0, background: [
-          'radial-gradient(ellipse at 8% 18%,  rgba(0,255,200,0.18)  0%, transparent 52%)',
-          'radial-gradient(ellipse at 88% 35%, rgba(255,0,136,0.14)  0%, transparent 45%)',
-          'radial-gradient(ellipse at 55% 80%, rgba(200,90,20,0.10)  0%, transparent 42%)',
-          'radial-gradient(ellipse at 30% 58%, rgba(0,80,255,0.12)   0%, transparent 40%)',
-        ].join(',') }} />
-      </div>
-
-      {/* film grain + vignette */}
-      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1, backgroundImage: [
-        `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E")`,
-        'radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,0.45) 100%)',
-      ].join(','), backgroundSize: '200px 200px, auto' }} />
-
-      {/* scrollable content */}
+    <main className="transit-view">
       <div style={{ position: 'relative', zIndex: 2, padding: 'clamp(2rem,5vw,3rem) clamp(1.5rem,6vw,5rem)' }}>
 
         {/* header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
-          <Link href="/anttra" className="experiment-link">← anttra</Link>
+          <span className="transit-label">Trondheim transit</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {lastUpdated && (
               <span style={{ ...MONO, fontSize: '0.6rem', opacity: 0.3 }}>
@@ -382,7 +353,7 @@ export default function BusRoutesPage() {
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              style={{ ...MONO, ...GLASS, fontSize: '0.65rem', padding: '0.2rem 0.55rem', color: refreshing ? '#d0d0d044' : '#d0d0d099', cursor: refreshing ? 'default' : 'pointer', transition: 'all 0.15s' }}
+              className="portfolio-control"
             >
               {refreshing ? 'refreshing' : 'refresh ↺'}
             </button>
@@ -390,7 +361,7 @@ export default function BusRoutesPage() {
         </div>
 
         {/* title row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '2.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '1rem', marginBottom: '2.5rem' }}>
           <h1 style={{ ...MONO, fontSize: 'clamp(2rem, 6vw, 4.5rem)', letterSpacing: '-0.03em', fontWeight: 300, opacity: 0.88, margin: 0 }}>
             Lerkendal
           </h1>
@@ -399,15 +370,7 @@ export default function BusRoutesPage() {
               <button
                 key={v}
                 onClick={() => setView(v)}
-                style={{
-                  ...MONO, fontSize: '0.72rem', padding: '0.25rem 0.65rem',
-                  border: `1px solid ${view === v ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.07)'}`,
-                  borderRadius: 4,
-                  background: view === v ? 'rgba(255,255,255,0.08)' : 'transparent',
-                  backdropFilter: view === v ? 'blur(10px)' : 'none',
-                  color: view === v ? '#d0d0d0' : '#d0d0d055',
-                  cursor: 'pointer', transition: 'all 0.15s',
-                }}
+                className="portfolio-control" aria-pressed={view === v}
               >
                 {v}
               </button>
@@ -428,19 +391,19 @@ export default function BusRoutesPage() {
           {/* filter chips */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ ...MONO, fontSize: '0.58rem', opacity: 0.3, minWidth: '4.5rem', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Lerkendal</span>
+              <span style={{ ...MONO, fontSize: '0.58rem', opacity: 0.78, minWidth: '4.5rem', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Lerkendal</span>
               {['1','2','3','4'].map(q => <Chip key={q} label={q} active={!hiddenQuays.has(q)} onClick={() => toggleQuay(q)} />)}
             </div>
             {allLines.length > 0 && (
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ ...MONO, fontSize: '0.58rem', opacity: 0.3, minWidth: '2.5rem', letterSpacing: '0.14em', textTransform: 'uppercase' }}>lines</span>
+                <span style={{ ...MONO, fontSize: '0.58rem', opacity: 0.78, minWidth: '2.5rem', letterSpacing: '0.14em', textTransform: 'uppercase' }}>lines</span>
                 {allLines.map(code => <Chip key={code} label={code} active={!hidden.has(code)} onClick={() => toggleLine(code)} />)}
               </div>
             )}
           </div>
 
           {fetchErr  && <p style={{ ...MONO, fontSize: '0.75rem', opacity: 0.4 }}>could not reach entur</p>}
-          {!data && !fetchErr && <p style={{ ...MONO, fontSize: '0.75rem', opacity: 0.18 }}>fetching...</p>}
+          {!data && !fetchErr && <p style={{ ...MONO, fontSize: '0.75rem', opacity: 0.75 }}>fetching...</p>}
 
           {/* quay panels */}
           <div style={{ display: 'grid', gridTemplateRows: fromQuery || fromStop ? '0fr' : '1fr', transition: 'grid-template-rows 0.35s ease', overflow: 'hidden' }}>
@@ -457,7 +420,7 @@ export default function BusRoutesPage() {
           </div>
 
           {/* divider */}
-          <div style={{ height: '1px', background: 'linear-gradient(to right, rgba(0,255,200,0.35), rgba(255,0,136,0.2), transparent)', margin: '0.5rem 0 2.5rem' }} />
+          <div style={{ height: '1px', background: 'var(--portfolio-line)', margin: '0.5rem 0 2.5rem' }} />
 
           {/* journey planner */}
           <div style={{ maxWidth: 520 }}>
@@ -493,7 +456,7 @@ export default function BusRoutesPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <button
                     onClick={() => { setArriveBy(v => !v); setTrips(null); }}
-                    style={{ ...MONO, ...GLASS, fontSize: '0.72rem', padding: '0.25rem 0.65rem', border: `1px solid ${arriveBy ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.07)'}`, color: arriveBy ? '#d0d0d0' : '#d0d0d044', cursor: 'pointer', transition: 'all 0.15s' }}
+                    style={{ ...MONO, ...GLASS, fontSize: '0.72rem', padding: '0.25rem 0.65rem', border: `1px solid ${arriveBy ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.07)'}`, color: arriveBy ? '#d0d0d0' : 'var(--portfolio-muted)', cursor: 'pointer', transition: 'all 0.15s' }}
                   >
                     arrive by
                   </button>

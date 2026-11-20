@@ -7,7 +7,7 @@ export const metadata = {
 };
 export default function DashboardPage() {
   return (
-    <Workspace active="dashboard">
+    <Workspace>
       <Dashboard />
     </Workspace>
   );

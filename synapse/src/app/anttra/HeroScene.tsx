@@ -3,10 +3,8 @@
 import { useEffect, useRef } from 'react';
 import { isFirefox } from '@/lib/browser';
 
-export default function HeroScene({ onReady }: { onReady: () => void }) {
+export default function HeroScene() {
   const mountRef   = useRef<HTMLDivElement>(null);
-  const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -27,16 +25,12 @@ export default function HeroScene({ onReady }: { onReady: () => void }) {
 
     // OffscreenCanvas not supported (Safari <16.4) — just fire ready
     if (typeof canvas.transferControlToOffscreen !== 'function') {
-      onReadyRef.current();
       return () => { if (mount.contains(canvas)) mount.removeChild(canvas); };
     }
 
     const offscreen = canvas.transferControlToOffscreen();
     const worker = new Worker(new URL('./heroWorker.ts', import.meta.url));
 
-    worker.onmessage = (e) => {
-      if (e.data.type === 'ready') onReadyRef.current();
-    };
 
     worker.postMessage(
       { type: 'init', canvas: offscreen, w, h, dpr, lowPower, staticFrame: reduced },

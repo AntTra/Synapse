@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function AnttraPage() {
   return (
-    <Workspace active="showcase">
+    <Workspace>
       <section id="work" className="work-section">
         <div className="section-heading">
           <div>

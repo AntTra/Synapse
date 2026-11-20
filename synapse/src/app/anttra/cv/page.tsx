@@ -3,7 +3,7 @@ import Link from "next/link";
 export const metadata = { title: "About Anton Tran — Synapse" };
 export default function AboutPage() {
   return (
-    <Workspace active="about">
+    <Workspace>
       <section className="page-intro">
         <p className="eyebrow">About & CV</p>
         <h1>

@@ -1,7 +1,7 @@
 export const projects = [
   {
     slug: "busroutes",
-    title: "Trondheim in motion",
+    title: "Trondheim bus routes",
     category: "Data & visualisation",
     image: "/busroutes.png",
     description:
@@ -11,7 +11,7 @@ export const projects = [
   },
   {
     slug: "globe",
-    title: "A different perspective",
+    title: "Vertex globes",
     category: "Interactive graphics",
     image: "/globe.png",
     description:
@@ -21,7 +21,7 @@ export const projects = [
   },
   {
     slug: "facemesh",
-    title: "Seeing the structure",
+    title: "Face mesh",
     category: "Computer vision",
     image: "/facemesh.png",
     description:
