@@ -745,7 +745,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       <div style={{
         position: 'absolute', top: '0.75rem', left: '0.75rem',
         fontFamily: 'monospace', fontSize: isMobile ? '0.58rem' : '0.65rem', letterSpacing: '0.08em',
-        color: '#00ffcc', background: 'rgba(0,4,12,0.82)',
+        color: 'var(--portfolio-blue)', background: 'var(--portfolio-surface)',
         border: '1px solid #00ffcc33', padding: isMobile ? '0.35rem 0.5rem' : '0.5rem 0.8rem',
         lineHeight: 1.8, pointerEvents: 'none',
         minWidth: isMobile ? 'auto' : '160px',
@@ -753,7 +753,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       }}>
         <div>
           <span style={{ opacity: 0.5 }}>STATE </span>
-          <span style={{ color: busStatus.state === 'ok' ? '#00ffcc' : busStatus.state === 'error' ? '#ff0088' : '#ffdd00' }}>
+          <span style={{ color: busStatus.state === 'ok' ? 'var(--portfolio-blue)' : busStatus.state === 'error' ? '#ffad96' : 'var(--portfolio-amber)' }}>
             {busStatus.state.toUpperCase()}
           </span>
         </div>
@@ -771,7 +771,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
                   flex: '0 1 auto',
                   background: '#ffdd0022',
                   border: '1px solid #ffdd0055',
-                  color: '#ffdd00',
+                  color: 'var(--portfolio-amber)',
                   padding: '0 4px'
                 }}
               >
@@ -781,7 +781,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
           </div>
         </div>
         )}
-        {busStatus.error && <div style={{ color: '#ff0088', marginTop: '0.2rem' }}>{busStatus.error}</div>}
+        {busStatus.error && <div style={{ color: '#ffad96', marginTop: '0.2rem' }}>{busStatus.error}</div>}
       </div>
 
       {!isMobile && arrivals.length >= 0 && (
@@ -799,7 +799,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
               return (
                 <Fragment key={a.id}>
                   <span style={{ color: '#ffffff', opacity: isNewest ? 1 : 0.6 }}>{a.time}</span>
-                  <span style={{ color: '#ffdd00', opacity: isNewest ? 1 : 0.6 }}>{a.line}</span>
+                  <span style={{ color: 'var(--portfolio-amber)', opacity: isNewest ? 1 : 0.6 }}>{a.line}</span>
                   <span style={{ color: hex, opacity: isNewest ? 1 : 0.6, textTransform: 'uppercase' }}>{a.stop}</span>
                   <span style={{ color: '#cce8ff', opacity: isNewest ? 0.8 : 0.4, fontSize: '0.58rem' }}>{a.desc}</span>
                 </Fragment>
@@ -835,7 +835,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
               {stopPanel.departures.map((d, i) => (
                 <Fragment key={i}>
                   <span style={{ color: '#ffffff' }}>{d.time}</span>
-                  <span style={{ color: '#ffdd00' }}>{d.line}</span>
+                  <span style={{ color: 'var(--portfolio-amber)' }}>{d.line}</span>
                   <span style={{ color: '#cce8ff', textTransform: 'uppercase' }}>{d.dest}</span>
                 </Fragment>
               ))}
@@ -872,7 +872,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
             }}
             style={{
               fontFamily: 'monospace', fontSize: '0.58rem', letterSpacing: '0.1em',
-              color: '#00ffcc', background: 'rgba(0,4,12,0.82)',
+              color: 'var(--portfolio-blue)', background: 'var(--portfolio-surface)',
               border: '1px solid #00ffcc33', padding: '0.2rem 0.7rem',
               cursor: 'pointer', textTransform: 'uppercase', pointerEvents: 'auto',
             }}
@@ -882,11 +882,11 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         </div>
         <div style={{
           fontFamily: 'monospace', fontSize: '1.0rem',
-          color: '#00ffcc', opacity: 0.65, letterSpacing: '0.1em',
+          color: 'var(--portfolio-blue)', opacity: 0.65, letterSpacing: '0.1em',
           textTransform: 'uppercase', lineHeight: 1.6, pointerEvents: 'none',
         }}>
           <div>lerkendal</div>
-          <div style={{ color: '#ff0088' }}>trondheim · atb</div>
+          <div style={{ color: '#ffad96' }}>trondheim · atb</div>
         </div>
       </div>
 
@@ -898,7 +898,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         pointerEvents: 'none', textAlign: 'right',
       }}>
         <div style={{ color: '#ff0000' }}>▲ live bus</div>
-        <div style={{ color: '#ffdd00' }}>▲ unmonitored bus</div>
+        <div style={{ color: 'var(--portfolio-amber)' }}>▲ unmonitored bus</div>
       </div>
       )}
     </div>

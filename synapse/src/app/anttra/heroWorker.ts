@@ -13,7 +13,7 @@ import * as THREE from 'three';
 let renderer: THREE.WebGLRenderer;
 let scene:    THREE.Scene;
 let camera:   THREE.PerspectiveCamera;
-let rafId     = 0;
+let drawFrame: ((time: number) => void) | undefined;
 
 const disposables: { dispose(): void }[] = [];
 
@@ -51,9 +51,10 @@ addEventListener('message', (e: MessageEvent) => {
     case 'init':      init(d);                          break;
     case 'resize':    onResize(d.w, d.h);               break;
     case 'mousemove': mouse.set(d.x, d.y);              break;
+    case 'frame': drawFrame?.(d.time); postMessage({type:'drawn'}); break;
     case 'scroll':    scrollN = d.p;                    break;
     case 'destroy':
-      cancelAnimationFrame(rafId);
+      drawFrame = undefined;
       disposables.forEach(x => x.dispose());
       renderer?.dispose();
       break;
@@ -344,9 +345,9 @@ function buildSky(lowPower: boolean) {
 }
 
 /* ── init / loop ── */
-function init({ canvas, w, h, dpr, lowPower, staticFrame }: {
+function init({ canvas, w, h, dpr, lowPower }: {
   canvas: OffscreenCanvas; w: number; h: number; dpr: number;
-  lowPower: boolean; staticFrame: boolean;
+  lowPower: boolean;
 }) {
   renderer = new THREE.WebGLRenderer({
     canvas, antialias: false, alpha: true, powerPreference: 'high-performance',
@@ -371,12 +372,10 @@ function init({ canvas, w, h, dpr, lowPower, staticFrame }: {
   (starMat.uniforms.uDpr  as { value: number }).value = dpr;
 
   let t = 40;   // start mid-state so first frame isn't empty
-  let readyFired = false;
-  const clock = new THREE.Clock();
-
-  const frame = () => {
-    const dt = Math.min(clock.getDelta(), 0.05);
-    t += dt;
+  let previousTime: number | undefined;
+  drawFrame = (time) => {
+    if (previousTime !== undefined) t += Math.min((time - previousTime) / 1000, 0.1);
+    previousTime = time;
 
     for (const u of timeUniforms) u.value = t;
     const sweep = (t / DRAW_PERIOD) % 1;
@@ -396,20 +395,11 @@ function init({ canvas, w, h, dpr, lowPower, staticFrame }: {
 
     renderer.render(scene, camera);
 
-    if (!readyFired) { readyFired = true; postMessage({ type: 'ready' }); }
   };
 
-  if (staticFrame) {
-    // reduced motion: render one composed frame, no loop
-    for (const u of timeUniforms) u.value = t;
-    for (const u of drawUniforms) u.value = 0.72;
-    renderer.render(scene, camera);
-    postMessage({ type: 'ready' });
-    return;
-  }
-
-  const loop = () => { rafId = requestAnimationFrame(loop); frame(); };
-  loop();
+  drawFrame(0);
+  previousTime = undefined;
+  postMessage({type:'ready'});
 }
 
 function onResize(w: number, h: number) {
@@ -417,4 +407,5 @@ function onResize(w: number, h: number) {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
+  renderer.render(scene,camera);
 }

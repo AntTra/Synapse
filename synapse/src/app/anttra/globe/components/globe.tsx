@@ -32,12 +32,16 @@ type Img = {src: string};
 export default function Globe({mode, clouds, night, moon}: {mode: 'earth' | 'saturn' | 'trondheim'; clouds: boolean; night: boolean; moon: boolean; }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [fps, setFps] = useState(0);
-  let earthMat: THREE.ShaderMaterial;
+  const layers = useRef({clouds, night, moon});
+  useEffect(() => { layers.current = {clouds, night, moon}; }, [clouds, night, moon]);
 
   useEffect(() => {
     if (!mountRef.current) return;
     const container = mountRef.current;
 
+    let earthMat: THREE.ShaderMaterial;
+    let dayMap: THREE.Texture;
+    let nightMap: THREE.Texture;
     // Sizes
     let width = container.clientWidth || window.innerWidth;
     let height = container.clientHeight || window.innerHeight;
@@ -49,7 +53,7 @@ export default function Globe({mode, clouds, night, moon}: {mode: 'earth' | 'sat
 
     // Camera
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 3);
+    camera.position.set(0, mode === "saturn" ? 2 : 0, mode === "saturn" ? 5 : 3);
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({
@@ -70,7 +74,13 @@ export default function Globe({mode, clouds, night, moon}: {mode: 'earth' | 'sat
 	controls.minDistance = 1.5;
 
     // Loader
-    const loader = new THREE.TextureLoader();
+    const textureLoader = new THREE.TextureLoader();
+    const textures: THREE.Texture[] = [];
+    const loader = { load(url: string) {
+      const texture = textureLoader.load(url);
+      textures.push(texture);
+      return texture;
+    } };
 
     // Groups
     const earthGroup = new THREE.Group();
@@ -85,6 +95,8 @@ export default function Globe({mode, clouds, night, moon}: {mode: 'earth' | 'sat
 
     if (mode === 'earth') {
       const map = loader.load((earthmap as unknown as Img).src);
+      dayMap = map;
+      nightMap = loader.load(earthlights.src);
       const bumpMap = loader.load((earthbump as unknown as Img).src);
       const specMap = loader.load((earthspec as unknown as Img).src);
       const cloudsAlpha = loader.load((earthcloudmaptrans as unknown as Img).src);
@@ -121,8 +133,9 @@ export default function Globe({mode, clouds, night, moon}: {mode: 'earth' | 'sat
 		const moonMat = new THREE.ShaderMaterial({
 			uniforms: {
 				size: {value: 1.5},
-				elev: {value: 0.1},
-				colorTexture: {value: moonMap},
+        alpha: {value: 1.1}, thresh: {value: 0},
+        elev: {value: 0.1},
+        colorTexture: {value: moonMap},
 				elevTexture: {value: moonBump},
 				alphaTexture: {value: moonBump},
 			},
@@ -240,7 +253,7 @@ export default function Globe({mode, clouds, night, moon}: {mode: 'earth' | 'sat
 
 		saturnGroup.add(saturnRingPoints);
 		saturnGroup.add(saturnPoints);
-		earthGroup.add(atmosphere);
+		saturnGroup.add(atmosphere);
 		saturnGroup.rotation.z = (26.7 * Math.PI) / 180; // Saturn obliquity-ish
 
 		const updateAtm = () => {
@@ -273,6 +286,9 @@ export default function Globe({mode, clouds, night, moon}: {mode: 'earth' | 'sat
 
 		if (mode === 'earth') {
 			earthMat.uniforms.cameraDistance.value = dist;
+      earthMat.uniforms.colorTexture.value = layers.current.night ? nightMap : dayMap;
+      cloudGroup.visible = layers.current.clouds;
+      moonGroup.visible = layers.current.moon;
 			earthGroup.rotateY(0.0001);
 			earthGroup.rotateX(-0.00001);
 			cloudGroup.rotateY(0.00052)
@@ -307,6 +323,7 @@ export default function Globe({mode, clouds, night, moon}: {mode: 'earth' | 'sat
 		cancelAnimationFrame(rafId);
 		ro.disconnect();
 		window.removeEventListener('resize', onResize);
+		textures.forEach(texture => texture.dispose());
 		controls.dispose();
 		renderer.dispose();
 

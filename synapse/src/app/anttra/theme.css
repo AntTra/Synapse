@@ -1,0 +1,58 @@
+.anttra-theme {
+  --portfolio-bg: #0b0f16;
+  --portfolio-surface: #121923;
+  --portfolio-text: #dde3ea;
+  --portfolio-muted: #a3b0be;
+  --portfolio-line: #303d4a;
+  --portfolio-blue: #8fd4ff;
+  --portfolio-amber: #f0a050;
+  --portfolio-font: var(--font-geist-mono), monospace;
+  color-scheme: dark;
+  background: var(--portfolio-bg);
+  color: var(--portfolio-text);
+  font-family: var(--portfolio-font);
+}
+.anttra-theme .experiment-link {
+  display: inline-block;
+  padding: .5rem 0;
+  color: var(--portfolio-blue);
+  font: 500 .8rem/1.5 var(--portfolio-font);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.anttra-theme .experiment-link:is(:hover, :focus-visible) { text-decoration: underline; }
+
+.portfolio-bar { height: 58px; position: sticky; top: 0; z-index: 100; background: var(--portfolio-bg); border-bottom: 1px solid var(--portfolio-line); display: flex; align-items: center; padding-inline: clamp(10px,5vw,80px); }
+.portfolio-bar nav { display: flex; gap: clamp(2px,1vw,16px); }
+.portfolio-bar a, .portfolio-control { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 clamp(8px,1.3vw,20px); font: inherit; font-size: .875rem; color: var(--portfolio-text); }
+.portfolio-bar a[aria-current], .portfolio-control[aria-pressed=true] { color: var(--portfolio-blue); background: #172735; }
+.portfolio-bar a:hover,.portfolio-control:hover { background: #202f3d; }
+.anttra-theme :focus-visible { outline: 2px solid var(--portfolio-blue); outline-offset: 2px; }
+.scene-home,.planet-view { height: calc(100dvh - 58px); }
+.planet-view { display: flex; }
+.planet-controls { padding: 1.25rem; width: 240px; }
+.planet-controls h1 { font-size: 1.4rem; margin-bottom: 1rem; }
+.planet-controls fieldset { margin: 1rem 0; }
+.planet-controls label { display: flex; align-items: center; gap: .6rem; min-height: 44px; cursor: pointer; }
+.planet-controls input { accent-color: var(--portfolio-blue); }
+.planet-controls p { font-size: .85rem; color: var(--portfolio-muted); }
+.planet-canvas { flex: 1; min-width: 0; min-height: 0; }
+.portfolio-control { border: 1px solid var(--portfolio-line); border-radius: 3px; cursor: pointer; margin-right: 3px; }
+.transit-view { min-height: calc(100dvh - 58px); max-width: 1400px; margin: auto; }
+.transit-label { align-self: center; font-size: .85rem; color: var(--portfolio-amber); }
+@media(max-width:700px) {
+  .planet-view { flex-direction: column; }
+  .planet-controls { width: auto; padding: .75rem 1rem; }
+  .planet-controls h1 { margin-bottom: .4rem; }
+  .planet-controls fieldset { margin: .5rem 0; }
+  .planet-controls label { display: inline-flex; margin-right: .8rem; }
+}
+
+.scene-home { position: relative; isolation: isolate; display: grid; align-items: start; padding: clamp(24px, 7vh, 75px) clamp(20px, 6vw, 96px); }
+.home-canvas { position: absolute; inset: 0; z-index: -1; }
+.home-intro { max-width: 38rem; color: var(--portfolio-text); text-shadow: 0 2px 8px var(--portfolio-bg); }
+.home-handle { color: var(--portfolio-blue); font-size: .875rem; letter-spacing: .18em; }
+.home-intro h1 { margin: .35rem 0 .65rem; font-size: clamp(3rem, 7vw, 7rem); font-weight: 400; line-height: 1; letter-spacing: -.07em; }
+.home-title { font-size: clamp(1.1rem, 2.4vw, 1.75rem); }
+.home-focus { max-width: 44ch; margin: .65rem 0 1.3rem; line-height: 1.6; color: #c8d2dd; }
+.home-projects { color: var(--portfolio-blue); background: var(--portfolio-bg); border-color: #537389; }

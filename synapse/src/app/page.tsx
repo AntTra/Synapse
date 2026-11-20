@@ -169,6 +169,11 @@ export default function LandingPage() {
 
   return (
     <div ref={root} style={{ backgroundColor: '#0a0a0a', color: '#ededed' }}>
+      <nav aria-label="Quick navigation" className="absolute top-0 left-0 right-0 z-50 flex flex-wrap justify-center gap-6 p-6 text-sm">
+        <Link href="/anttra" className="hover:underline focus-visible:outline">Anton’s showcase</Link>
+        <Link href="/anttra/dashboard" className="hover:underline focus-visible:outline">News dashboard</Link>
+        <Link href="/michaelbcy" className="hover:underline focus-visible:outline">Michael’s space</Link>
+      </nav>
       <div style={{ position: 'relative', zIndex: 1 }}>
 
         {/* HERO */}

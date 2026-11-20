@@ -3,10 +3,8 @@
 import { useEffect, useRef } from 'react';
 import { isFirefox } from '@/lib/browser';
 
-export default function HeroScene({ onReady }: { onReady: () => void }) {
+export default function HeroScene() {
   const mountRef   = useRef<HTMLDivElement>(null);
-  const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -19,7 +17,6 @@ export default function HeroScene({ onReady }: { onReady: () => void }) {
     const dpr = Math.min(window.devicePixelRatio, lowPower ? 1 : 1.5);
     const w = mount.clientWidth;
     const h = mount.clientHeight;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const canvas = document.createElement('canvas');
     canvas.style.cssText = 'width:100%;height:100%;display:block;';
@@ -27,19 +24,27 @@ export default function HeroScene({ onReady }: { onReady: () => void }) {
 
     // OffscreenCanvas not supported (Safari <16.4) — just fire ready
     if (typeof canvas.transferControlToOffscreen !== 'function') {
-      onReadyRef.current();
       return () => { if (mount.contains(canvas)) mount.removeChild(canvas); };
     }
 
     const offscreen = canvas.transferControlToOffscreen();
     const worker = new Worker(new URL('./heroWorker.ts', import.meta.url));
 
-    worker.onmessage = (e) => {
-      if (e.data.type === 'ready') onReadyRef.current();
-    };
 
+    let active = true;
+    let waiting = true;
+    let frameId = 0;
+    function schedule() {
+      if (!active || waiting || frameId) return;
+      frameId = requestAnimationFrame(time => {
+        frameId = 0;
+        waiting = true;
+        worker.postMessage({type: 'frame', time});
+      });
+    }
+    worker.onmessage = () => { waiting = false; schedule(); };
     worker.postMessage(
-      { type: 'init', canvas: offscreen, w, h, dpr, lowPower, staticFrame: reduced },
+      { type: 'init', canvas: offscreen, w, h, dpr, lowPower },
       [offscreen],
     );
 
@@ -67,10 +72,12 @@ export default function HeroScene({ onReady }: { onReady: () => void }) {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('scroll', onScroll);
       worker.postMessage({ type: 'destroy' });
+      active = false;
+      cancelAnimationFrame(frameId);
       worker.terminate();
       if (mount.contains(canvas)) mount.removeChild(canvas);
     };
   }, []);
 
-  return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
+  return <div ref={mountRef} className="home-canvas" aria-hidden="true" />;
 }
