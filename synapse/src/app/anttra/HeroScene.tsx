@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { isFirefox } from '@/lib/browser';
 
 export default function HeroScene() {
-  const [playing, setPlaying] = useState(false);
-  const playback = useRef<(active: boolean) => void>(() => {});
   const mountRef   = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,14 +44,6 @@ export default function HeroScene() {
       });
     }
     worker.onmessage = () => { waiting = false; schedule(); };
-    playback.current = enabled => {
-      active = enabled;
-      setPlaying(enabled);
-      cancelAnimationFrame(frameId);
-      frameId = 0;
-      schedule();
-    };
-    setPlaying(active);
     worker.postMessage(
       { type: 'init', canvas: offscreen, w, h, dpr, lowPower, staticFrame: reduced },
       [offscreen],
@@ -90,10 +80,5 @@ export default function HeroScene() {
     };
   }, []);
 
-  return <div style={{position:'relative',height:'100%'}}>
-    <div ref={mountRef} style={{width:'100%',height:'100%'}} />
-    <button className="portfolio-control" style={{position:'absolute',right:16,bottom:16,background:'var(--portfolio-bg)'}} onClick={() => playback.current(!playing)}>
-      {playing ? 'Pause animation' : 'Play animation'}
-    </button>
-  </div>;
+  return <div ref={mountRef} className="home-canvas" aria-hidden="true" />;
 }
