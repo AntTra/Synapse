@@ -77,13 +77,25 @@ export default function FaceMeshPage() {
       }
     }
 
+    // #9: the camera frame is mapped onto the 4:3 working canvas by centre-cropping it
+    // ("cover"), never stretching it. Portrait phone cameras deliver e.g. 480x640, which
+    // used to be squashed into 640x480. Landmarks get the same mapping (see onResults).
+    const crop = { sx: 0, sy: 0, sw: VW, sh: VH, vw: VW, vh: VH };
+    function updateCrop(video: HTMLVideoElement) {
+      const vw = video.videoWidth || VW, vh = video.videoHeight || VH;
+      const target = VW / VH;
+      if (vw / vh > target) { const sw = vh * target; Object.assign(crop, { sx: (vw - sw) / 2, sy: 0, sw, sh: vh }); }
+      else { const sh = vw / target; Object.assign(crop, { sx: 0, sy: (vh - sh) / 2, sw: vw, sh }); }
+      crop.vw = vw; crop.vh = vh;
+    }
+
     const sampleCv = document.createElement('canvas');
     sampleCv.width = VW; sampleCv.height = VH;
     const sCtx = sampleCv.getContext('2d', { willReadFrequently: true })!;
 
     function sampleColors() {
       const video = videoRef.current; if (!video) return;
-      sCtx.save(); sCtx.scale(-1, 1); sCtx.drawImage(video, -VW, 0, VW, VH); sCtx.restore();
+      sCtx.save(); sCtx.scale(-1, 1); sCtx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, -VW, 0, VW, VH); sCtx.restore();
       const img = sCtx.getImageData(0, 0, VW, VH).data;
       for (let i = 0; i < NG; i++) {
         const px = Math.max(0, Math.min(VW - 1, restX[i] | 0));
@@ -100,6 +112,8 @@ export default function FaceMeshPage() {
         stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: VW }, height: { ideal: VH } } });
         const video = videoRef.current!;
         video.srcObject = stream; await video.play();
+        updateCrop(video);
+        video.addEventListener('resize', () => updateCrop(video)); // phone rotated
 
         const canvas = canvasRef.current!;
         canvas.width = VW; canvas.height = VH;
@@ -218,8 +232,9 @@ export default function FaceMeshPage() {
           if (stopRef.current) return;
           const lms = r.multiFaceLandmarks?.[0]; if (!lms) return;
           for (let i = 0; i < BASE; i++) {
-            liveFace[i].x = (1 - lms[i].x) * VW;
-            liveFace[i].y = lms[i].y * VH;
+            // landmarks are normalised to the full camera frame: apply the crop, then mirror
+            liveFace[i].x = VW - (lms[i].x * crop.vw - crop.sx) * VW / crop.sw;
+            liveFace[i].y = (lms[i].y * crop.vh - crop.sy) * VH / crop.sh;
           }
           hasLandmarks = true;
         });
