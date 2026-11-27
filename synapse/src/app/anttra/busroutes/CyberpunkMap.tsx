@@ -9,6 +9,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { fetchVehicles, fetchStopDepartures } from './api/Departure/api';
+import { buildRoadGrid, snapToRoad, type RoadGrid } from './roads';
 interface OsmData {
   buildings: { footprint: [number,number][]; height: number; type: string }[];
   roads:     { points:   [number,number][]; type: string }[];
@@ -416,6 +417,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
   }, []);
   const sceneRef      = useRef<THREE.Scene | null>(null);
   const vehicleMeshes = useRef<Map<string, THREE.Group>>(new Map());
+  const roadGridRef   = useRef<RoadGrid | null>(null);
   const pulseMeshes   = useRef<THREE.Mesh[]>([]);
   const stopMeshes    = useRef<THREE.Group[]>([]);
   const recentArrivals = useRef<Map<string, number>>(new Map());
@@ -620,8 +622,16 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         const track = group.userData.track as Track | undefined;
         if (!track) continue;
         const [x, z] = predictedPos(track, wallNow);
-        group.position.set(x, 0, z);
-        group.rotation.y = turnToward(group.rotation.y, track.heading, dt);
+        // Keep the bus on the street network; the arrow follows the road, pointed the way it moves.
+        // shortcut: nearest-road projection can cut sharp turns between reports; upgrade by
+        // following each trip's route shape from Entur if that shows.
+        const road = roadGridRef.current && snapToRoad(roadGridRef.current, x, z);
+        group.position.set(road ? road.x : x, 0, road ? road.z : z);
+        const moving = track.vx !== 0 || track.vz !== 0;
+        const heading = road && moving
+          ? (road.dx * track.vx + road.dz * track.vz >= 0 ? velocityHeading(road.dx, road.dz) : velocityHeading(-road.dx, -road.dz))
+          : track.heading;
+        group.rotation.y = turnToward(group.rotation.y, heading, dt);
       }
       const stopScale = Math.max(1, camDist / 80);
       for (const group of stopMeshes.current) group.scale.setScalar(stopScale);
@@ -687,6 +697,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       .then(r => r.json() as Promise<OsmData>)
       .then(data => {
         if (cancelled) return;
+        roadGridRef.current = buildRoadGrid(data.roads, gpsToScene);
         worker = new Worker(new URL('./mapWorker.ts', import.meta.url), { type: 'module' });
 
         worker.onmessage = (e: MessageEvent<{
