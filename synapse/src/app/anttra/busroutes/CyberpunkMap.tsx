@@ -485,29 +485,35 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
 
     const signs: { obj: CSS2DObject; kind: StopKind }[] = [];
 
-    // Bus labels never cover stop signs: a label overlapping a visible sign is lifted to just
-    // above it (CSS `translate`, which CSS2DRenderer's per-frame `transform` doesn't overwrite).
-    // The lift eases toward its target so labels glide instead of hopping.
+    // Bus labels never cover stop signs or each other. Each frame, labels are placed from the
+    // lowest on screen upward; one that would land on a sign or an already-placed label is lifted
+    // to just above it (CSS `translate`, which CSS2DRenderer's per-frame `transform` doesn't
+    // overwrite). The lift eases toward its target so labels slide instead of hopping.
     const unstackBadges = () => {
-      const signRects = signs
+      const obstacles = signs
         .filter(({ obj }) => obj.element.style.display !== 'none' && !obj.element.classList.contains('is-hidden'))
-        .map(({ obj }) => obj.element.getBoundingClientRect());
-      for (const group of vehicleMeshes.current.values()) {
-        const el = group.userData.badgeEl as HTMLElement | undefined;
-        if (!el || el.style.display === 'none') continue;
-        const r = el.getBoundingClientRect();
-        const shown = Number(el.dataset.lift || 0);
-        const top = r.top + shown, bottom = r.bottom + shown; // where the label sits without a lift
+        .map(({ obj }) => obj.element.getBoundingClientRect() as { left: number; right: number; top: number; bottom: number });
+      const labels = [...vehicleMeshes.current.values()]
+        .map(group => group.userData.badgeEl as HTMLElement | undefined)
+        .filter((el): el is HTMLElement => !!el && el.style.display !== 'none')
+        .map(el => {
+          const r = el.getBoundingClientRect();
+          const shown = Number(el.dataset.lift || 0);
+          return { el, shown, left: r.left, right: r.right, top: r.top + shown, bottom: r.bottom + shown }; // un-lifted box
+        })
+        .sort((a, b) => b.bottom - a.bottom);
+      for (const l of labels) {
         let target = 0;
-        for (let pass = 0; pass < 3; pass++) { // a lift can land on another sign: re-check a few times
-          const hit = signRects.find(sg => r.left < sg.right && r.right > sg.left && top - target < sg.bottom && bottom - target > sg.top);
+        for (let pass = 0; pass < 8; pass++) { // a lift can land on the next obstacle: re-check
+          const hit = obstacles.find(o => l.left < o.right && l.right > o.left && l.top - target < o.bottom && l.bottom - target > o.top);
           if (!hit) break;
-          target = bottom - hit.top + 3;
+          target = l.bottom - hit.top + 3;
         }
-        const next = Math.abs(target - shown) < 0.5 ? target : shown + (target - shown) * 0.3;
-        if (next !== shown) {
-          el.dataset.lift = String(next);
-          el.style.translate = next ? `0 ${-next}px` : '';
+        obstacles.push({ left: l.left, right: l.right, top: l.top - target, bottom: l.bottom - target });
+        const next = Math.abs(target - l.shown) < 0.5 ? target : l.shown + (target - l.shown) * 0.3;
+        if (next !== l.shown) {
+          l.el.dataset.lift = String(next);
+          l.el.style.translate = next ? `0 ${-next}px` : '';
         }
       }
     };
