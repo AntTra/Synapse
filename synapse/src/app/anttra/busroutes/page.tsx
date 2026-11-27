@@ -252,6 +252,7 @@ export default function BusRoutesPage() {
   const [tripLoading, setTripLoading] = useState(false);
   const [tripErr,     setTripErr]     = useState(false);
   const [toSlideOpen, setToSlideOpen] = useState(false);
+  const [planning,    setPlanning]    = useState(false); // focus is inside the journey planner (#7)
   const [arriveBy,    setArriveBy]    = useState(false);
   const [arriveTime,  setArriveTime]  = useState('12:00');
   useEffect(() => {
@@ -416,7 +417,7 @@ export default function BusRoutesPage() {
           {!data && !fetchErr && <p style={{ ...MONO, fontSize: '0.75rem', opacity: 0.75 }}>fetching...</p>}
 
           {/* quay panels */}
-          <div style={{ display: 'grid', gridTemplateRows: fromQuery || fromStop ? '0fr' : '1fr', transition: 'grid-template-rows 0.35s ease', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateRows: planning ? '0fr' : '1fr', transition: 'grid-template-rows 0.35s ease', overflow: 'hidden' }}>
             <div style={{ minHeight: 0 }}>
               {data && (
                 <div className="pf-stagger" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', paddingBottom: '3rem' }}>
@@ -432,8 +433,12 @@ export default function BusRoutesPage() {
           {/* divider */}
           <div style={{ height: '1px', background: 'var(--portfolio-line)', margin: '0.5rem 0 2.5rem' }} />
 
-          {/* journey planner */}
-          <div style={{ maxWidth: 520 }}>
+          {/* journey planner: departures collapse only while focus is in here, and return on click-away (#7) */}
+          <div
+            style={{ maxWidth: 520 }}
+            onFocus={() => setPlanning(true)}
+            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPlanning(false); }}
+          >
             <p style={{ ...MONO, fontSize: '0.6rem', opacity: 0.4, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '1.2rem' }}>
               plan journey
             </p>
