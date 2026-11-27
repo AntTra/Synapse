@@ -188,17 +188,6 @@ const ALL_STOPS = [...STOPS, ...EXTRA_STOPS];
 const NOTIFY_LABELS = new Set(['Lerkendal 1','Lerkendal 2','Lerkendal 3','Lerkendal 4','Valøyvegen','Hesthagen','Lerkendal gård']);
 const NOTIFY_STOPS  = ALL_STOPS.filter(s => NOTIFY_LABELS.has(s.label));
 
-// Demo bus: shuttles Valøyvegen → Lerkendal → Hesthagen and back whenever Entur reports no buses.
-const DEMO_ROUTE = ([
-  ['Valøyvegen',  'departing stop'],  // south quay first, so the route runs south → north
-  ['Valøyvegen',  'approaching stop'],
-  ['Lerkendal 1', 'from city'],
-  ['Hesthagen',   'departing stop'],
-  ['Hesthagen',   'approaching stop'],
-] as const).map(([label, desc]) => STOPS.find(s => s.label === label && s.desc === desc)!);
-const DEMO_SPEED = 6; // scene units/s (~18 m/s, a bit fast so it's watchable)
-const DEMO_DWELL = 3; // seconds stopped at each stop
-
 const BraindanceShader = {
   uniforms: { tDiffuse: { value: null }, time: { value: 0 } },
   vertexShader: `
@@ -554,30 +543,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
     const PLATFORM_DETAIL_DIST = 70;
     let signsZoom = -1;
 
-    const demoBus = busMarker('DEMO', C.liveBus);
-    demoBus.visible = false;
-    scene.add(demoBus);
-    let demoLeg = 0, demoDir = 1, demoProgress = 0, demoDwell = DEMO_DWELL;
     let lastFrame = performance.now();
-    const stepDemo = (dt: number) => {
-      if (demoDwell > 0) demoDwell -= dt;
-      else {
-        const a = DEMO_ROUTE[demoLeg], b = DEMO_ROUTE[demoLeg + demoDir];
-        demoProgress += DEMO_SPEED * dt / Math.hypot(b.x - a.x, b.z - a.z);
-        if (demoProgress >= 1) {
-          demoProgress = 0;
-          demoLeg += demoDir;
-          demoDwell = DEMO_DWELL;
-          if (demoLeg === 0 || demoLeg === DEMO_ROUTE.length - 1) demoDir = -demoDir;
-          const s = DEMO_ROUTE[demoLeg];
-          const time = new Date().toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' });
-          setArrivals(prev => [...prev.slice(-9), { id: `demo:${Date.now()}`, stop: s.label, desc: s.desc, line: 'DEMO', color: s.color, time }]);
-        }
-      }
-      const a = DEMO_ROUTE[demoLeg], b = DEMO_ROUTE[demoLeg + demoDir];
-      demoBus.position.set(a.x + (b.x - a.x) * demoProgress, 0, a.z + (b.z - a.z) * demoProgress);
-      demoBus.rotation.y = -Math.atan2(b.x - a.x, -(b.z - a.z));
-    };
 
     let alive = true;
     let t = 0;
@@ -626,8 +592,6 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         group.position.set(x, 0, z);
         group.rotation.y = turnToward(group.rotation.y, track.heading, dt);
       }
-      demoBus.visible = vehicleMeshes.current.size === 0;
-      if (demoBus.visible) { stepDemo(dt); demoBus.scale.setScalar(busScale); }
       const stopScale = Math.max(1, camDist / 80);
       for (const group of stopMeshes.current) group.scale.setScalar(stopScale);
       const viewDist = camera.position.distanceTo(controls.target);
@@ -912,7 +876,6 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
           </span>
         </div>
         <div><span style={{ opacity: 0.5 }}>BUSES </span>{busStatus.count}</div>
-        {busStatus.count === 0 && <div style={{ color: hex(C.liveBus) }}>DEMO BUS · no live buses</div>}
         {busStatus.loadMs !== null && !isMobile && <div><span style={{ opacity: 0.5 }}>LOAD </span>{busStatus.loadMs}ms</div>}
         {busStatus.lastUpdated && <div><span style={{ opacity: 0.5 }}>UPD </span>{busStatus.lastUpdated}</div>}
         {busStatus.activeLines.length > 0 && (
