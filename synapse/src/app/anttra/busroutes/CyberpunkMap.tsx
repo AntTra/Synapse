@@ -388,6 +388,8 @@ function turnToward(current: number, target: number, dt: number): number {
 
 interface ArrivalNotif  { id: string; stop: string; desc: string; line: string; color: number; time: string }
 
+const CARDINALS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const VEHICLE_POLL_MS = 25_000; // Entur blocks clients polling faster than this
 const ARRIVE_DIST     = 33;
 const ARRIVE_COOLDOWN = 60_000;
 
@@ -397,6 +399,8 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
   const activeRef     = useRef(true);
   const cameraRef       = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef     = useRef<OrbitControls | null>(null);
+  const resetViewRef    = useRef<(() => void) | null>(null);
+  const headingTextRef  = useRef<HTMLSpanElement | null>(null);
   const gyroContainerRef = useRef<HTMLDivElement | null>(null);
   const gyroRendRef      = useRef<THREE.WebGLRenderer | null>(null);
   const gyroScRef        = useRef<THREE.Scene | null>(null);
@@ -416,6 +420,12 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
   const stopMeshes    = useRef<THREE.Group[]>([]);
   const recentArrivals = useRef<Map<string, number>>(new Map());
   const [arrivals, setArrivals] = useState<ArrivalNotif[]>([]);
+  const [nextVehicleAt, setNextVehicleAt] = useState<number | null>(null);
+  const [hudNow, setHudNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setHudNow(Date.now()), 1000); // HUD countdown
+    return () => clearInterval(id);
+  }, []);
   const [busStatus, setBusStatus] = useState<{
     state: 'idle' | 'fetching' | 'ok' | 'error';
     count: number; loadMs: number | null; lastUpdated: string | null;
@@ -545,6 +555,22 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
 
     let lastFrame = performance.now();
 
+    // "Reset view" glides the camera home over 800 ms. Always, even with reduced motion:
+    // it only runs when the visitor presses the button, and a jump cut is disorienting in 3D.
+    const HOME_POS = new THREE.Vector3(200, 110, 0), HOME_TARGET = new THREE.Vector3(0, 0, 0);
+    let camTween: { fromPos: THREE.Vector3; fromTarget: THREE.Vector3; start: number } | null = null;
+    resetViewRef.current = () => {
+      camTween = { fromPos: camera.position.clone(), fromTarget: controls.target.clone(), start: performance.now() };
+    };
+    const stepCamTween = () => {
+      if (!camTween) return;
+      const k = Math.min(1, (performance.now() - camTween.start) / 800);
+      const e = 1 - (1 - k) ** 3; // ease-out cubic
+      camera.position.lerpVectors(camTween.fromPos, HOME_POS, e);
+      controls.target.lerpVectors(camTween.fromTarget, HOME_TARGET, e);
+      if (k >= 1) camTween = null;
+    };
+
     let alive = true;
     let t = 0;
     const animate = () => {
@@ -552,6 +578,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       requestAnimationFrame(animate);
       t += 0.016;
       braindance.uniforms.time.value = t;
+      stepCamTween();
       controls.update();
       {
         const dx = camera.position.x - controls.target.x;
@@ -570,6 +597,10 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
           );
           gyroCompassRef.current.quaternion.multiplyQuaternions(qPitch, qHeading);
         }
+        // Which way the camera faces, as a compass bearing.
+        const deg = Math.round(((Math.atan2(-dx, dz) * 180) / Math.PI + 360) % 360) % 360;
+        const label = `${String(deg).padStart(3, '0')}° ${CARDINALS[Math.round(deg / 45) % 8]}`;
+        if (headingTextRef.current && headingTextRef.current.textContent !== label) headingTextRef.current.textContent = label;
         if (gyroRendRef.current && gyroScRef.current && gyroCamRef.current)
           gyroRendRef.current.render(gyroScRef.current, gyroCamRef.current);
       }
@@ -600,7 +631,9 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         signsZoom = zoom;
         for (const { obj, kind } of signs) {
           obj.element.classList.toggle('is-far', kind === 'platform' ? zoom < 2 : zoom < 1);
-          obj.visible = kind !== 'minor' || zoom === 0; // grey stops: overview only
+          const hide = kind === 'minor' && zoom !== 0; // grey stops: overview only
+          obj.element.classList.toggle('is-hidden', hide); // fades via CSS
+          (obj.element as HTMLButtonElement).tabIndex = hide ? -1 : 0;
         }
       }
       composer.render();
@@ -628,6 +661,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
 
     return () => {
       activeRef.current = false;
+      resetViewRef.current = null;
       alive = false; // stops this effect's loop even if a remount turns activeRef back on
       sceneRef.current  = null;
       cameraRef.current = null;
@@ -669,14 +703,30 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
             const geo = new THREE.BufferGeometry();
             geo.setAttribute('position', new THREE.Float32BufferAttribute(buf, 3));
             geo.computeBoundingSphere();
-            scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color, transparent, opacity })));
+            const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0 });
+            fades.push({ mat, opacity, transparent });
+            scene.add(new THREE.LineSegments(geo, mat));
           };
+          const fades: { mat: THREE.LineBasicMaterial; opacity: number; transparent: boolean }[] = [];
           addLines(bright, C.roadMain,  false, 1);
           addLines(mid,    C.roadMid,   true,  0.85);
           addLines(dim,    C.roadMinor, true,  0.7);
 
           for (const buf of civic) addLines(buf, C.civic, true, 0.95);
           for (const buf of resid) addLines(buf, C.building, true, 0.85);
+
+          // Fade the city in instead of popping it in (opacity only, so fine with reduced motion).
+          const FADE_MS = 900;
+          const start = performance.now();
+          const step = () => {
+            if (cancelled) return;
+            const k = FADE_MS ? Math.min(1, (performance.now() - start) / FADE_MS) : 1;
+            const e = 1 - (1 - k) ** 3;
+            for (const f of fades) f.mat.opacity = f.opacity * e;
+            if (k < 1) requestAnimationFrame(step);
+            else for (const f of fades) { f.mat.transparent = f.transparent; f.mat.needsUpdate = true; }
+          };
+          step();
 
           worker?.terminate();
           worker = null;
@@ -693,7 +743,17 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
   }, []);
 
   useEffect(() => {
+    // Self-scheduling poll: every fetch (automatic or a manual refresh) books the next one
+    // VEHICLE_POLL_MS later, so the HUD countdown is always right.
+    let timer = 0, stopped = false;
     const update = async () => {
+      window.clearTimeout(timer);
+      await fetchOnce();
+      if (stopped) return;
+      timer = window.setTimeout(update, VEHICLE_POLL_MS);
+      setNextVehicleAt(Date.now() + VEHICLE_POLL_MS);
+    };
+    const fetchOnce = async () => {
       if (!activeRef.current) return;
       const scene = sceneRef.current;
       if (!scene) return;
@@ -752,8 +812,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
     };
     updateVehiclesRef.current = update;
     update();
-    const id = setInterval(update, 25_000);
-    return () => { clearInterval(id); updateVehiclesRef.current = null; };
+    return () => { stopped = true; window.clearTimeout(timer); updateVehiclesRef.current = null; };
   }, []);
 
   useEffect(() => {
@@ -812,8 +871,25 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       dotGroup.add(dot);
     });
 
+    // N/E/S/W letters just outside the ring; sprites always face the gyro camera.
+    const letterGroup = new THREE.Group();
+    ([['N', 0, hex(C.liveBus)], ['E', Math.PI / 2, '#a3b0be'], ['S', Math.PI, '#a3b0be'], ['W', -Math.PI / 2, '#a3b0be']] as const)
+      .forEach(([letter, a, color]) => {
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = 64;
+        const ctx = cv.getContext('2d')!;
+        ctx.font = 'bold 44px monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+        ctx.fillText(letter, 32, 34);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
+        sprite.scale.setScalar(letter === 'N' ? 0.62 : 0.5);
+        sprite.position.set(Math.sin(a) * 1.62, 0.05, -Math.cos(a) * 1.62);
+        letterGroup.add(sprite);
+      });
+
     const compassGroup = new THREE.Group();
-    compassGroup.add(ringMesh, tickGroup, dotGroup, gyroGrid);
+    compassGroup.add(ringMesh, tickGroup, dotGroup, gyroGrid, letterGroup);
     scene.add(compassGroup);
 
     const spinRing = new THREE.Mesh(
@@ -878,6 +954,11 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         <div><span style={{ opacity: 0.5 }}>BUSES </span>{busStatus.count}</div>
         {busStatus.loadMs !== null && !isMobile && <div><span style={{ opacity: 0.5 }}>LOAD </span>{busStatus.loadMs}ms</div>}
         {busStatus.lastUpdated && <div><span style={{ opacity: 0.5 }}>UPD </span>{busStatus.lastUpdated}</div>}
+        {nextVehicleAt !== null && (
+          <div style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ opacity: 0.5 }}>NEXT </span>{Math.max(0, Math.ceil((nextVehicleAt - hudNow) / 1000))}s
+          </div>
+        )}
         {busStatus.activeLines.length > 0 && (
         <div style={{ marginTop: '0.3rem' }}>
           <div style={{ opacity: 0.5, marginBottom: '0.1rem' }}>LINES</div>
@@ -915,10 +996,10 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
               const isNewest = i === arrivals.length - 1;
               return (
                 <Fragment key={a.id}>
-                  <span style={{ color: '#ffffff', opacity: isNewest ? 1 : 0.6 }}>{a.time}</span>
-                  <span style={{ color: 'var(--portfolio-amber)', opacity: isNewest ? 1 : 0.6 }}>{a.line}</span>
-                  <span style={{ color: hex(a.color), opacity: isNewest ? 1 : 0.6, textTransform: 'uppercase' }}>{a.stop}</span>
-                  <span style={{ color: '#cce8ff', opacity: isNewest ? 0.8 : 0.4, fontSize: '0.58rem' }}>{a.desc}</span>
+                  <span className="pf-fade" style={{ color: '#ffffff', opacity: isNewest ? 1 : 0.6 }}>{a.time}</span>
+                  <span className="pf-fade" style={{ color: 'var(--portfolio-amber)', opacity: isNewest ? 1 : 0.6 }}>{a.line}</span>
+                  <span className="pf-fade" style={{ color: hex(a.color), opacity: isNewest ? 1 : 0.6, textTransform: 'uppercase' }}>{a.stop}</span>
+                  <span className="pf-fade" style={{ color: '#cce8ff', opacity: isNewest ? 0.8 : 0.4, fontSize: '0.58rem' }}>{a.desc}</span>
                 </Fragment>
               );
             })}
@@ -927,7 +1008,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       )}
 
       {stopPanel && (
-        <div style={{
+        <div key={stopPanel.label + stopPanel.desc} className="pf-fade" style={{
           position: 'absolute',
           bottom: isMobile ? 0 : '1.2rem',
           left: isMobile ? 0 : '50%',
@@ -968,25 +1049,30 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         transformOrigin: 'bottom left', zIndex: 10,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
-          <div
-            ref={gyroContainerRef}
-            style={{
-              width: 96, height: 96,
-              borderRadius: '50%', overflow: 'hidden',
-              background: 'rgba(11,15,22,0.85)',
-              border: '1px solid var(--portfolio-line)',
-              pointerEvents: 'none',
-            }}
+          <div style={{ position: 'relative', pointerEvents: 'none' }}>
+            <div
+              ref={gyroContainerRef}
+              style={{
+                width: 96, height: 96,
+                borderRadius: '50%', overflow: 'hidden',
+                background: 'rgba(11,15,22,0.85)',
+                border: '1px solid var(--portfolio-line)',
+              }}
+            />
+            {/* Fixed marker: the top of the gyro is the way the camera is facing. */}
+            <span aria-hidden="true" style={{
+              position: 'absolute', top: -5, left: '50%', transform: 'translateX(-50%)',
+              borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
+              borderTop: '8px solid var(--portfolio-amber)',
+            }} />
+          </div>
+          <span
+            ref={headingTextRef}
+            aria-label="Camera heading"
+            style={{ fontFamily: 'monospace', fontSize: '0.62rem', letterSpacing: '0.08em', color: 'var(--portfolio-text)', fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}
           />
           <button
-            onClick={() => {
-              const cam = cameraRef.current;
-              const ctrl = controlsRef.current;
-              if (!cam || !ctrl) return;
-              cam.position.set(200, 110, 0);
-              ctrl.target.set(0, 0, 0);
-              ctrl.update();
-            }}
+            onClick={() => resetViewRef.current?.()}
             style={{
               fontFamily: 'monospace', fontSize: '0.58rem', letterSpacing: '0.1em',
               color: 'var(--portfolio-blue)', background: 'var(--portfolio-surface)',

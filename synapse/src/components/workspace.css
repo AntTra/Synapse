@@ -547,3 +547,23 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Weather panel (dashboard sidebar) */
+.weather-now { display: flex; align-items: center; gap: 1rem; margin-top: 0.5rem; }
+.weather-icon { font-size: 2.75rem; line-height: 1; }
+.weather-temp { font-size: 2.5rem; line-height: 1; letter-spacing: -0.04em; }
+.weather-label { color: var(--dim); margin-top: 0.25rem; }
+.weather-meta { font-size: 0.85rem; color: var(--dim); margin: 0.75rem 0; }
+.weather-hours { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.25rem; list-style: none; padding: 0.6rem 0; margin: 0; border-block: 1px solid var(--line); }
+.weather-hours li { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.weather-hours time { color: var(--dim); font-size: 0.72rem; }
+.weather-credit { font-size: 0.72rem; color: var(--dim); margin-top: 0.6rem; }
+/* Weather chart: recessive grid and axes, text in ink tokens (never series colours). */
+.wchart { position: relative; margin: 1.9rem 0 0; } /* room above for the hover tooltip */
+.wchart svg { display: block; width: 100%; height: auto; overflow: visible; outline-offset: 4px; }
+.wchart-title { fill: var(--dim); font-size: 9px; letter-spacing: 0.04em; }
+.wchart-axis { fill: var(--dim); font-size: 8.5px; font-variant-numeric: tabular-nums; }
+.wchart-grid { stroke: var(--line); stroke-width: 1; }
+.wchart-cross { stroke: var(--ink); stroke-opacity: 0.35; stroke-width: 1; }
+.wchart-dot { stroke: var(--portfolio-surface); stroke-width: 2; } /* 2px surface ring */
+.wchart-tip { position: absolute; top: -1.6rem; transform: translateX(-50%); padding: 2px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--portfolio-bg); color: var(--ink); font-size: 0.72rem; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; }

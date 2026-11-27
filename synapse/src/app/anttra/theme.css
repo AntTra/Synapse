@@ -65,9 +65,81 @@
 .stop-sign__desc { margin-top: 1px; color: var(--portfolio-muted); font-size: 10.5px; font-weight: 400; }
 .stop-sign[data-kind=minor] { font-size: 11px; }
 .stop-sign:is(:hover, :focus-visible) { border-color: var(--sign); background: #172735; }
-.stop-sign.is-far .stop-sign__desc { display: none; }
-.stop-sign.is-far[data-kind=platform] .stop-sign__text { display: none; } /* cluster of 4: badge only when zoomed out */
+.stop-sign.is-far .stop-sign__desc { max-height: 0; opacity: 0; }
+.stop-sign.is-far[data-kind=platform] .stop-sign__text { max-width: 0; padding-inline: 0; opacity: 0; } /* cluster of 4: badge only when zoomed out */
 
 /* Bus line-number badge (CSS2D, above each bus arrow). --bus is the bus colour. */
 .bus-badge { z-index: 100000 !important; /* beats CSS2DRenderer's inline distance z-order: buses above stop signs */ position: relative; display: inline-block; min-width: 1.6em; padding: 2px 6px; margin-bottom: 6px; border-radius: 3px; background: var(--bus); color: var(--portfolio-bg); font: 700 13px/1.2 var(--portfolio-font); text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.6); }
 .bus-badge::after { content: ''; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); border: 5px solid transparent; border-bottom: 0; border-top-color: var(--bus); }
+
+/* ── Motion ──────────────────────────────────────────────────────────────
+   One easing + three durations for the whole portfolio. Entrances rise 8px and
+   fade; staggered lists delay each child by 45ms. Fill mode is `backwards`, not
+   `both`: once finished the animation lets go, so no leftover transform turns the
+   wrapper into a containing block for position:fixed children (void, facemesh).
+   With prefers-reduced-motion, everything becomes a plain fade (bottom of block). */
+.anttra-theme {
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --dur-1: 160ms;   /* hovers, presses */
+  --dur-2: 280ms;   /* panels, toggles */
+  --dur-3: 520ms;   /* page and section entrances */
+}
+@keyframes pf-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pf-fade { from { opacity: 0; } }
+
+.pf-page  { animation: pf-rise var(--dur-3) var(--ease-out) backwards; }
+.pf-enter { animation: pf-rise var(--dur-2) var(--ease-out) backwards; }
+.pf-fade  { animation: pf-fade var(--dur-3) var(--ease-out) backwards; }
+
+/* Staggered entrances: cards, panels and list rows arrive one after another. */
+.pf-stagger > *,
+.anttra-theme :is(.project-grid, .resume-grid, .news-list, .dashboard-sidebar) > * {
+  animation: pf-rise var(--dur-3) var(--ease-out) backwards;
+}
+:is(.pf-stagger, .project-grid, .resume-grid, .news-list, .dashboard-sidebar) > :nth-child(2) { animation-delay: 45ms; }
+:is(.pf-stagger, .project-grid, .resume-grid, .news-list, .dashboard-sidebar) > :nth-child(3) { animation-delay: 90ms; }
+:is(.pf-stagger, .project-grid, .resume-grid, .news-list, .dashboard-sidebar) > :nth-child(4) { animation-delay: 135ms; }
+:is(.pf-stagger, .project-grid, .resume-grid, .news-list, .dashboard-sidebar) > :nth-child(5) { animation-delay: 180ms; }
+:is(.pf-stagger, .project-grid, .resume-grid, .news-list, .dashboard-sidebar) > :nth-child(6) { animation-delay: 225ms; }
+:is(.pf-stagger, .project-grid, .resume-grid, .news-list, .dashboard-sidebar) > :nth-child(n+7) { animation-delay: 270ms; }
+
+/* Controls: colour changes glide, presses give a little. */
+.portfolio-bar a, .portfolio-control {
+  transition: background-color var(--dur-1) ease, color var(--dur-1) ease, border-color var(--dur-1) ease, transform var(--dur-1) var(--ease-out);
+}
+.portfolio-control:active { transform: scale(.97); }
+
+/* Nav: one indicator bar that slides to the current page (PortfolioNav.tsx). */
+.portfolio-bar nav { position: relative; }
+.portfolio-indicator {
+  position: absolute; left: 0; bottom: 6px; height: 2px; border-radius: 1px;
+  background: var(--portfolio-blue); pointer-events: none;
+  transition: transform var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out), opacity var(--dur-2) ease;
+}
+
+/* Bus map: signs expand/collapse and fade instead of popping. */
+.stop-sign { transition: opacity var(--dur-2) ease, background-color var(--dur-1) ease, border-color var(--dur-1) ease; }
+.stop-sign.is-hidden { opacity: 0; pointer-events: none; }
+.stop-sign__text { transition: max-width var(--dur-2) var(--ease-out), opacity var(--dur-2) ease, padding var(--dur-2) var(--ease-out); max-width: 22em; overflow: hidden; }
+.stop-sign__desc { transition: max-height var(--dur-2) var(--ease-out), opacity var(--dur-2) ease; max-height: 2em; }
+.bus-badge { animation: pf-fade var(--dur-3) var(--ease-out) backwards; }
+
+/* Scroll reveal (ScrollReveal.tsx): below-the-fold items wait hidden, then rise in.
+   Own keyframe name so it restarts even on elements that already ran pf-rise;
+   !important beats the stagger rules, but not the inline per-batch delay. */
+@keyframes pf-reveal { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+.pf-pending { opacity: 0; }
+.pf-revealed {
+  animation-name: pf-reveal !important; animation-duration: 700ms !important;
+  animation-timing-function: var(--ease-out) !important; animation-fill-mode: backwards !important;
+}
+
+/* Reduced motion: keep the fades (opacity is not motion), drop movement — except the
+   scroll reveal, which rises for everyone by the site owner's choice. */
+@media (prefers-reduced-motion: reduce) {
+  .pf-page, .pf-enter, .pf-stagger > *,
+  .anttra-theme :is(.project-grid, .resume-grid, .news-list, .dashboard-sidebar) > * { animation-name: pf-fade; }
+  .portfolio-control:active { transform: none; }
+  .portfolio-indicator { transition: opacity var(--dur-2) ease; } /* jumps instead of sliding */
+  .anttra-theme * { scroll-behavior: auto !important; }
+}

@@ -6,6 +6,8 @@ import {
   parseArticles,
   parseRepositories,
   loadDashboard,
+  parseWeather,
+  describeWeather,
 } from "../src/lib/feed.ts";
 const hit = {
   objectID: "123",
@@ -79,4 +81,42 @@ test("news failure leaves repositories available", async () => {
   assert.equal(result.repositories.length, 1);
   assert.ok(result.newsError);
   assert.equal(result.reposError, null);
+});
+
+const forecast = (n) => ({
+  properties: {
+    meta: { updated_at: "2026-11-27T02:00:00Z" },
+    timeseries: Array.from({ length: n }, (_, i) => ({
+      time: `2026-11-27T0${i}:00:00Z`,
+      data: {
+        instant: { details: { air_temperature: -2 + i, wind_speed: 3.4 } },
+        next_1_hours: { summary: { symbol_code: i ? "lightrainshowers_night" : "partlycloudy_night" }, details: { precipitation_amount: 0.4 } },
+      },
+    })),
+  },
+});
+test("weather parser reads now and the next six hours", () => {
+  const w = parseWeather(forecast(9));
+  assert.equal(w.temperature, -2);
+  assert.equal(w.symbol, "partlycloudy_night");
+  assert.equal(w.windSpeed, 3.4);
+  assert.equal(w.precipitation, 0.4);
+  assert.equal(w.hours.length, 6);
+  assert.equal(w.hours[0].temperature, -1);
+  assert.throws(() => parseWeather({ properties: { timeseries: [] } }));
+  assert.deepEqual(describeWeather("lightrainshowers_night"), { icon: "🌦", label: "Light rain showers" });
+  assert.equal(describeWeather("clearsky_day").label, "Clear");
+});
+test("weather failure leaves news and repositories available", async () => {
+  const result = await loadDashboard("tech", async (url) =>
+    url.includes("met.no")
+      ? new Response("", { status: 503 })
+      : url.includes("algolia")
+        ? Response.json({ hits: [hit] })
+        : Response.json([]),
+  );
+  assert.equal(result.weather, null);
+  assert.ok(result.weatherError);
+  assert.equal(result.newsError, null);
+  assert.equal(result.articles.length, 1);
 });
