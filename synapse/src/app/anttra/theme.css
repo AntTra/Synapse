@@ -69,8 +69,8 @@
 .stop-sign.is-far[data-kind=platform] .stop-sign__text { max-width: 0; padding-inline: 0; opacity: 0; } /* cluster of 4: badge only when zoomed out */
 
 /* Bus line-number badge (CSS2D, above each bus arrow). --bus is the bus colour. */
-.bus-badge { z-index: 100000 !important; /* beats CSS2DRenderer's inline distance z-order: buses above stop signs */ position: relative; display: inline-block; min-width: 1.6em; padding: 2px 6px; margin-top: 8px; border-radius: 3px; background: var(--bus); color: var(--portfolio-bg); font: 700 13px/1.2 var(--portfolio-font); text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.6); }
-.bus-badge::after { content: ''; position: absolute; left: 50%; top: -5px; transform: translateX(-50%); border: 5px solid transparent; border-top: 0; border-bottom-color: var(--bus); } /* points up at the bus */
+.bus-badge { z-index: 100000 !important; /* beats CSS2DRenderer's inline distance z-order: buses above stop signs */ position: relative; display: inline-block; min-width: 1.6em; padding: 2px 6px; margin-bottom: 6px; border-radius: 3px; background: var(--bus); color: var(--portfolio-bg); font: 700 13px/1.2 var(--portfolio-font); text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.bus-badge::after { content: ''; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); border: 5px solid transparent; border-bottom: 0; border-top-color: var(--bus); } /* points down at the arrow */
 
 /* ── Motion ──────────────────────────────────────────────────────────────
    One easing + three durations for the whole portfolio. Entrances rise 8px and
