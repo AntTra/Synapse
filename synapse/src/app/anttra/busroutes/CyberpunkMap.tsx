@@ -7,6 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { fetchVehicles, fetchStopDepartures } from './api/Departure/api';
 interface OsmData {
   buildings: { footprint: [number,number][]; height: number; type: string }[];
@@ -19,9 +20,32 @@ const M_PER_DEG_LAT = 111000;
 const M_PER_DEG_LON = 111000 * Math.cos(CENTER_LAT * Math.PI / 180);
 const SCENE_SCALE   = 3; // metres per scene unit
 
-const RED = 0xff0088;
-const GREEN = 0x00ffcc;
-const WHITE = 0x989898;
+// Portfolio palette (matches anttra/theme.css)
+const C = {
+  ground:     0x0b0f16,
+  gridMajor:  0x223140,
+  gridMinor:  0x151f2a,
+  roadMain:   0x9cc0de,
+  roadMid:    0x6688a6,
+  roadMinor:  0x3d566e,
+  civic:      0xb8d4ee,
+  building:   0x86a5c3,
+  liveBus:    0xff8a5c,
+  unmonBus:   0xf0c060,
+  platform:   0x8fd4ff, // Lerkendal platforms
+  approach:   0x7ee0a8,
+  depart:     0xff9db0,
+  minorStop:  0xa3b0be,
+  extraStop:  0x5f7a91,
+  extraRing:  0x3a4f63,
+  amber:      0xf0a050,
+};
+const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
+
+type StopKind = 'platform' | 'approach' | 'depart' | 'minor';
+const KIND_COLOR: Record<StopKind, number> = {
+  platform: C.platform, approach: C.approach, depart: C.depart, minor: C.minorStop,
+};
 
 function gpsToScene(lat: number, lon: number): [number, number] {
   return [
@@ -31,46 +55,53 @@ function gpsToScene(lat: number, lon: number): [number, number] {
 }
 
 const STOPS = [
-  { label: 'Lerkendal 1',    desc: 'from city',        lat: 63.411853,          lon: 10.399434,          color: 0xaa44ff, quayId: 'NSR:Quay:73729'  },
-  { label: 'Lerkendal 2',    desc: 'towards city',     lat: 63.411740,          lon: 10.399045,          color: 0xaa44ff, quayId: 'NSR:Quay:102720' },
-  { label: 'Lerkendal 3',    desc: 'towards city',     lat: 63.412654,          lon: 10.399831,          color: 0xaa44ff, quayId: 'NSR:Quay:73421'  },
-  { label: 'Lerkendal 4',    desc: 'from city',        lat: 63.412515,          lon: 10.400432,          color: 0xaa44ff, quayId: 'NSR:Quay:73420'  },
-  { label: 'Hesthagen',      desc: 'approaching stop', lat: 63.416813603641200, lon: 10.397221457580931, color: GREEN,    quayId: 'NSR:Quay:102719' },
-  { label: 'Hesthagen',      desc: 'departing stop',   lat: 63.415498417151130, lon: 10.398147029114945, color: RED,      quayId: 'NSR:Quay:71204'  },
-  { label: 'Valøyvegen',     desc: 'approaching stop', lat: 63.407950831670080, lon: 10.398137286879060, color: RED,      quayId: 'NSR:Quay:71982'  },
-  { label: 'Valøyvegen',     desc: 'departing stop',   lat: 63.409554361708760, lon: 10.399296426408844, color: GREEN,    quayId: 'NSR:Quay:71981'  },
-  { label: 'Lerkendal gård', desc: 'departing stop',   lat: 63.413006,          lon: 10.409538,          color: GREEN,    quayId: 'NSR:Quay:73415'  },
-  { label: 'Lerkendal gård', desc: 'approaching stop', lat: 63.412782,          lon: 10.407832,          color: RED,      quayId: 'NSR:Quay:73414'  },
-  { label: 'Gløshaugen',             desc: '',  lat: 63.416835,           lon: 10.407556,          color: WHITE  },
-  { label: 'Studentersamfundet', desc: '',  lat: 63.422596,           lon: 10.394623,          color: WHITE  },
-  { label: 'Berg studentby',         desc: '',  lat: 63.413576,           lon: 10.414052,          color: WHITE  },
-  { label: 'Karl Jonssons veg',     desc: '', lat: 63.401536, lon: 10.408706, color: WHITE },
-  { label: 'Anton Grevskotts veg',  desc: '', lat: 63.403484, lon: 10.406089, color: WHITE },
-  { label: 'Sorgenfri',             desc: '', lat: 63.407686, lon: 10.403809, color: WHITE },
-  { label: 'Høgskoleringen',        desc: '', lat: 63.420867, lon: 10.404181, color: WHITE },
-  { label: 'St. Olavs hospital',    desc: '', lat: 63.420757, lon: 10.390046, color: WHITE },
-  { label: 'Bratsbergvegen',        desc: '', lat: 63.405387, lon: 10.397457, color: WHITE },
-  { label: 'Siemens',               desc: '', lat: 63.403719, lon: 10.398836, color: WHITE },
-  { label: 'Nyveibakken',           desc: '', lat: 63.423966, lon: 10.371359, color: WHITE },
-  { label: 'Tvetestien',            desc: '', lat: 63.417785, lon: 10.372038, color: WHITE },
-  { label: 'Marienborg stasjon',    desc: '', lat: 63.418056, lon: 10.382563, color: WHITE },
-  { label: 'Thaulowbakken',         desc: '', lat: 63.412656, lon: 10.382222, color: WHITE },
-  { label: 'Breidablikk',       desc: '', lat: 63.412383, lon: 10.376708, color: WHITE },
-  { label: 'Gudruns gate',          desc: '', lat: 63.425210, lon: 10.382784, color: WHITE },
-  { label: 'Ankers gate',           desc: '', lat: 63.424860, lon: 10.416855, color: WHITE },
-  { label: 'Strinda vgs.',          desc: '', lat: 63.422046, lon: 10.427611, color: WHITE },
-  { label: 'Nardosenteret',         desc: '', lat: 63.403569, lon: 10.426994, color: WHITE },
-  { label: 'Nardokrysset',          desc: '', lat: 63.406960, lon: 10.423778, color: WHITE },
-  { label: 'Sollia',                desc: '', lat: 63.399244, lon: 10.428297, color: WHITE },
-  { label: 'E-verket',              desc: '', lat: 63.398881, lon: 10.401320, color: WHITE },
-  { label: 'Nidarvoll skole',       desc: '', lat: 63.399155, lon: 10.404734, color: WHITE },
-  { label: 'Valgrindvegen',         desc: '', lat: 63.409468, lon: 10.402859, color: WHITE },
-  { label: 'Tempevegen 11',         desc: '', lat: 63.407804, lon: 10.396690, color: WHITE },
-  { label: 'Sluppen',               desc: '', lat: 63.401921, lon: 10.395796, color: WHITE },
-  { label: 'Trondheim hovedbrannstasjon', desc: '', lat: 63.399245, lon: 10.392889, color: WHITE },
-  { label: 'Hoem',                  desc: '', lat: 63.405573, lon: 10.382777, color: WHITE },
-  { label: 'Rognheim',              desc: '', lat: 63.399670, lon: 10.371500, color: WHITE },
-].map(s => { const [x, z] = gpsToScene(s.lat, s.lon); return { ...s, x, z }; });
+  { label: 'Lerkendal 1',    desc: 'from city',        lat: 63.411853,          lon: 10.399434, quayId: 'NSR:Quay:73729'  },
+  { label: 'Lerkendal 2',    desc: 'towards city',     lat: 63.411740,          lon: 10.399045, quayId: 'NSR:Quay:102720' },
+  { label: 'Lerkendal 3',    desc: 'towards city',     lat: 63.412654,          lon: 10.399831, quayId: 'NSR:Quay:73421'  },
+  { label: 'Lerkendal 4',    desc: 'from city',        lat: 63.412515,          lon: 10.400432, quayId: 'NSR:Quay:73420'  },
+  { label: 'Hesthagen',      desc: 'approaching stop', lat: 63.416813603641200, lon: 10.397221457580931,    quayId: 'NSR:Quay:102719' },
+  { label: 'Hesthagen',      desc: 'departing stop',   lat: 63.415498417151130, lon: 10.398147029114945,      quayId: 'NSR:Quay:71204'  },
+  { label: 'Valøyvegen',     desc: 'departing stop',   lat: 63.407950831670080, lon: 10.398137286879060,      quayId: 'NSR:Quay:71982'  },
+  { label: 'Valøyvegen',     desc: 'approaching stop', lat: 63.409554361708760, lon: 10.399296426408844,    quayId: 'NSR:Quay:71981'  },
+  { label: 'Lerkendal gård', desc: 'departing stop',   lat: 63.413006,          lon: 10.409538,    quayId: 'NSR:Quay:73415'  },
+  { label: 'Lerkendal gård', desc: 'approaching stop', lat: 63.412782,          lon: 10.407832,      quayId: 'NSR:Quay:73414'  },
+  { label: 'Gløshaugen',             desc: '',  lat: 63.416835,           lon: 10.407556},
+  { label: 'Studentersamfundet', desc: '',  lat: 63.422596,           lon: 10.394623},
+  { label: 'Berg studentby',         desc: '',  lat: 63.413576,           lon: 10.414052},
+  { label: 'Karl Jonssons veg',     desc: '', lat: 63.401536, lon: 10.408706},
+  { label: 'Anton Grevskotts veg',  desc: '', lat: 63.403484, lon: 10.406089},
+  { label: 'Sorgenfri',             desc: '', lat: 63.407686, lon: 10.403809},
+  { label: 'Høgskoleringen',        desc: '', lat: 63.420867, lon: 10.404181},
+  { label: 'St. Olavs hospital',    desc: '', lat: 63.420757, lon: 10.390046},
+  { label: 'Bratsbergvegen',        desc: '', lat: 63.405387, lon: 10.397457},
+  { label: 'Siemens',               desc: '', lat: 63.403719, lon: 10.398836},
+  { label: 'Nyveibakken',           desc: '', lat: 63.423966, lon: 10.371359},
+  { label: 'Tvetestien',            desc: '', lat: 63.417785, lon: 10.372038},
+  { label: 'Marienborg stasjon',    desc: '', lat: 63.418056, lon: 10.382563},
+  { label: 'Thaulowbakken',         desc: '', lat: 63.412656, lon: 10.382222},
+  { label: 'Breidablikk',       desc: '', lat: 63.412383, lon: 10.376708},
+  { label: 'Gudruns gate',          desc: '', lat: 63.425210, lon: 10.382784},
+  { label: 'Ankers gate',           desc: '', lat: 63.424860, lon: 10.416855},
+  { label: 'Strinda vgs.',          desc: '', lat: 63.422046, lon: 10.427611},
+  { label: 'Nardosenteret',         desc: '', lat: 63.403569, lon: 10.426994},
+  { label: 'Nardokrysset',          desc: '', lat: 63.406960, lon: 10.423778},
+  { label: 'Sollia',                desc: '', lat: 63.399244, lon: 10.428297},
+  { label: 'E-verket',              desc: '', lat: 63.398881, lon: 10.401320},
+  { label: 'Nidarvoll skole',       desc: '', lat: 63.399155, lon: 10.404734},
+  { label: 'Valgrindvegen',         desc: '', lat: 63.409468, lon: 10.402859},
+  { label: 'Tempevegen 11',         desc: '', lat: 63.407804, lon: 10.396690},
+  { label: 'Sluppen',               desc: '', lat: 63.401921, lon: 10.395796},
+  { label: 'Trondheim hovedbrannstasjon', desc: '', lat: 63.399245, lon: 10.392889},
+  { label: 'Hoem',                  desc: '', lat: 63.405573, lon: 10.382777},
+  { label: 'Rognheim',              desc: '', lat: 63.399670, lon: 10.371500},
+].map(s => {
+  const [x, z] = gpsToScene(s.lat, s.lon);
+  const kind: StopKind = s.label.startsWith('Lerkendal ') && /\d$/.test(s.label) ? 'platform'
+    : s.desc === 'approaching stop' ? 'approach'
+    : s.desc === 'departing stop'   ? 'depart'
+    : 'minor';
+  return { ...s, x, z, kind, color: KIND_COLOR[kind] };
+});
 
 const EXTRA_STOPS = ([
   { name: 'Karl Jonssons veg',             lat: 63.401536, lon: 10.408706 },
@@ -149,13 +180,24 @@ const EXTRA_STOPS = ([
   { name: 'Rognheim',                      lat: 63.399749, lon: 10.371469 },
 ] as const).map(s => {
   const [x, z] = gpsToScene(s.lat, s.lon);
-  return { label: s.name, desc: '', lat: s.lat, lon: s.lon, x, z, color: 0x006688 as number };
+  return { label: s.name, desc: '', lat: s.lat, lon: s.lon, x, z, color: C.extraStop as number };
 });
 
 const ALL_STOPS = [...STOPS, ...EXTRA_STOPS];
 
 const NOTIFY_LABELS = new Set(['Lerkendal 1','Lerkendal 2','Lerkendal 3','Lerkendal 4','Valøyvegen','Hesthagen','Lerkendal gård']);
 const NOTIFY_STOPS  = ALL_STOPS.filter(s => NOTIFY_LABELS.has(s.label));
+
+// Demo bus: shuttles Valøyvegen → Lerkendal → Hesthagen and back whenever Entur reports no buses.
+const DEMO_ROUTE = ([
+  ['Valøyvegen',  'departing stop'],  // south quay first, so the route runs south → north
+  ['Valøyvegen',  'approaching stop'],
+  ['Lerkendal 1', 'from city'],
+  ['Hesthagen',   'departing stop'],
+  ['Hesthagen',   'approaching stop'],
+] as const).map(([label, desc]) => STOPS.find(s => s.label === label && s.desc === desc)!);
+const DEMO_SPEED = 6; // scene units/s (~18 m/s, a bit fast so it's watchable)
+const DEMO_DWELL = 3; // seconds stopped at each stop
 
 const BraindanceShader = {
   uniforms: { tDiffuse: { value: null }, time: { value: 0 } },
@@ -174,13 +216,12 @@ const BraindanceShader = {
       float r = texture2D(tDiffuse, vUv + aberr).r;
       float g = texture2D(tDiffuse, vUv).g;
       float b = texture2D(tDiffuse, vUv - aberr).b;
-      float scan    = sin(vUv.y * 700.0) * 0.025;
+      float scan    = sin(vUv.y * 700.0) * 0.012;
       float gate    = pow(sin(time * 2.0) * 0.5 + 0.5, 20.0);
       float flicker = (sin(time * 31.0) * sin(time * 7.3) * 0.012) * gate;
       float vig     = smoothstep(0.85, 0.3, dist);
       vec3 col = vec3(r, g, b);
       col -= scan; col += flicker; col *= vig;
-      col.r *= 0.88; col.b *= 1.08;
       gl_FragColor = vec4(col, 1.0);
     }
   `,
@@ -209,7 +250,42 @@ function buildingLines(
   return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
 }
 
-function stopMarker(label: string, color: number): THREE.Group {
+// Readable HTML sign above each stop: colour bar (with platform no. at Lerkendal), name, direction.
+function stopSign(stop: { label: string; desc: string; kind: StopKind; color: number }, onOpen: () => void): CSS2DObject {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'stop-sign';
+  el.dataset.kind = stop.kind;
+  el.style.setProperty('--sign', hex(stop.color));
+  el.setAttribute('aria-label', `${stop.label}${stop.desc ? ', ' + stop.desc : ''}: show departures`);
+  const platformNo = stop.kind === 'platform' ? stop.label.match(/\d+$/)?.[0] : undefined;
+  const name = platformNo ? 'Lerkendal' : stop.label;
+  const desc = platformNo ? `Platform ${platformNo} · ${stop.desc}` : stop.desc;
+  const badge = document.createElement('span');
+  badge.className = 'stop-sign__badge';
+  if (platformNo) badge.textContent = platformNo; // other stops: badge stays empty = plain colour bar
+  const text = document.createElement('span');
+  text.className = 'stop-sign__text';
+  const nameEl = document.createElement('span');
+  nameEl.className = 'stop-sign__name';
+  nameEl.textContent = name;
+  text.append(nameEl);
+  if (desc) {
+    const descEl = document.createElement('span');
+    descEl.className = 'stop-sign__desc';
+    descEl.textContent = desc;
+    text.append(descEl);
+  }
+  el.append(badge, text);
+  el.addEventListener('pointerdown', e => e.stopPropagation());
+  el.addEventListener('click', e => { e.stopPropagation(); onOpen(); });
+  const obj = new CSS2DObject(el);
+  obj.center.set(0.5, 1); // sign sits on top of the beacon
+  obj.position.set(0, 3.1, 0);
+  return obj;
+}
+
+function stopMarker(color: number): THREE.Group {
   const group = new THREE.Group();
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.6, 32), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.3 }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; group.add(ring);
@@ -222,78 +298,40 @@ function stopMarker(label: string, color: number): THREE.Group {
   sphere.position.y = 2.8; group.add(sphere);
   const light = new THREE.PointLight(color, 0.4, 6);
   light.position.y = 2.8; group.add(light);
-  const cw = 200, ch = 44;
-  const cv = document.createElement('canvas');
-  cv.width = cw; cv.height = ch;
-  const ctx = cv.getContext('2d')!;
-  ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, cw, ch);
-  const hex = '#' + color.toString(16).padStart(6, '0');
-  ctx.strokeStyle = hex + '66'; ctx.lineWidth = 1.5; ctx.strokeRect(1, 1, cw - 2, ch - 2);
-  ctx.fillStyle = hex + '33'; ctx.font = '18px monospace';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(label.toUpperCase(), cw / 2, ch / 2);
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
-  sprite.scale.set(3.5, 1.0, 1); sprite.position.set(0, 3.6, 0); group.add(sprite);
   return group;
 }
 
+// Bus = flat arrow on the road (shows heading) + floating HTML badge with the line number
+// (always faces the camera, never flips or blurs).
 function busMarker(line: string, color: number): THREE.Group {
   const group = new THREE.Group();
-  const cw = 128, ch = 128;
-  const cv = document.createElement('canvas');
-  cv.width = cw; cv.height = ch;
-  const ctx = cv.getContext('2d')!;
-  ctx.clearRect(0, 0, cw, ch);
-  const hex = '#' + color.toString(16).padStart(6, '0');
-  
-  ctx.beginPath();
-  ctx.moveTo(cw / 2, 2); 
-  ctx.lineTo(cw - 2, ch - 2); 
-  ctx.lineTo(2, ch - 2);
-  ctx.closePath();
-  
-  ctx.fillStyle = hex + 'dd'; 
-  ctx.fill();
-  
-  ctx.font = '50px monospace'; 
-  ctx.textAlign = 'center'; 
-  ctx.textBaseline = 'middle';
-  
-  const textY = ch * 0.8;
-  ctx.strokeStyle = 'rgba(0, 0, 0, 1)'; 
-  ctx.lineWidth = 5;
-  ctx.strokeText(line, cw / 2, textY);
-  ctx.fillStyle = '#000000';
-  ctx.fillText(line, cw / 2, textY);
-  
-  const texture = new THREE.CanvasTexture(cv);
-  const triGeo = new THREE.BufferGeometry();
-  
-  triGeo.setAttribute('position', new THREE.Float32BufferAttribute([
-     0,    0.06, -3.5,
-     2.0,  0.06,  2.2,
-    -2.0,  0.06,  2.2,
+  const arrowGeo = new THREE.BufferGeometry();
+  arrowGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+     0,   0.06, -3.5, // tip
+     2.0, 0.06,  2.2, // right wing
+     0,   0.06,  0.8, // notch
+    -2.0, 0.06,  2.2, // left wing
   ], 3));
-  
-  triGeo.setAttribute('uv', new THREE.Float32BufferAttribute([
-    0.5, 1.0, 
-    1.0, 0.0, 
-    0.0, 0.0,
-  ], 2));
-  
-  triGeo.setIndex([0, 1, 2]); 
-  triGeo.computeVertexNormals();
-  
-  const mesh = new THREE.Mesh(triGeo, new THREE.MeshBasicMaterial({ 
-    map: texture, 
-    transparent: true, 
-    opacity: 0.8, 
-    side: THREE.DoubleSide, 
-    depthWrite: false 
-  }));
-  
-  group.add(mesh);
+  arrowGeo.setIndex([0, 1, 2, 0, 2, 3]);
+  group.add(new THREE.Mesh(arrowGeo, new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false,
+  })));
+
+  const el = document.createElement('span');
+  el.className = 'bus-badge';
+  el.textContent = line;
+  el.style.setProperty('--bus', hex(color));
+  const badge = new CSS2DObject(el);
+  badge.center.set(0.5, 1);
+  badge.position.set(0, 1.2, 0);
+  group.add(badge);
   return group;
+}
+
+// Removing a group from the scene leaves nested CSS2D elements in the DOM; drop them explicitly.
+function disposeMarker(group: THREE.Object3D) {
+  group.traverse(o => { if (o instanceof CSS2DObject) o.element.remove(); });
+  group.removeFromParent();
 }
 
 
@@ -304,6 +342,59 @@ function headingToNearestStop(bx: number, bz: number): number {
     if (d < bestD) { bestD = d; best = s; }
   }
   return -Math.atan2(best.x - bx, -(best.z - bz));
+}
+
+// ── Bus motion between Entur reports (dead reckoning) ──────────────────────
+// Entur may only be polled every 25 s. Between reports each bus keeps moving at the
+// velocity measured from its last two reports; when a new report lands, the gap between
+// where we drew the bus and where it really is gets eased out instead of snapped.
+interface Track {
+  fixX: number; fixZ: number; fixT: number; // last report: scene position + time (ms epoch)
+  vx: number; vz: number;                   // estimated velocity, scene units per second
+  offX: number; offZ: number; offT: number; // correction being eased out, and when it started
+  heading: number;                          // target rotation.y
+}
+const MAX_PREDICT_S = 30;      // stop extrapolating if a report is late
+const MIN_MOVE      = 2;       // < 6 m between reports = standing still
+const MAX_SPEED     = 25 / 3;  // 25 m/s in scene units: ignore GPS jumps above this
+const EASE_MS       = 3000;    // how long a correction takes to fade (slower = less abrupt slide-back after an unseen stop)
+
+function predictedPos(tr: Track, nowMs: number): [number, number] {
+  const e = Math.min(Math.max((nowMs - tr.fixT) / 1000, 0), MAX_PREDICT_S);
+  const k = Math.max(0, 1 - (nowMs - tr.offT) / EASE_MS);
+  const ease = k * k * (3 - 2 * k); // smoothstep: correction fades gently
+  return [tr.fixX + tr.vx * e + tr.offX * ease, tr.fixZ + tr.vz * e + tr.offZ * ease];
+}
+
+const bearingToHeading = (deg: number) => -deg * Math.PI / 180;           // compass bearing → rotation.y
+const velocityHeading  = (vx: number, vz: number) => -Math.atan2(vx, -vz); // same convention as headingToNearestStop
+
+function trackFromReport(prev: Track | undefined, x: number, z: number, reportT: number, bearing: number, nowMs: number): Track {
+  const fixT = reportT || nowMs;
+  if (!prev) {
+    const heading = bearing ? bearingToHeading(bearing) : headingToNearestStop(x, z);
+    return { fixX: x, fixZ: z, fixT, vx: 0, vz: 0, offX: 0, offZ: 0, offT: 0, heading };
+  }
+  if (fixT <= prev.fixT) return prev; // same report as last poll: keep predicting
+  const dt = (fixT - prev.fixT) / 1000;
+  let vx = (x - prev.fixX) / dt, vz = (z - prev.fixZ) / dt;
+  const moved = Math.hypot(x - prev.fixX, z - prev.fixZ);
+  const speed = moved / dt;
+  if (moved < MIN_MOVE) { vx = 0; vz = 0; }
+  else if (speed > MAX_SPEED) { vx *= MAX_SPEED / speed; vz *= MAX_SPEED / speed; }
+  const heading = vx || vz ? velocityHeading(vx, vz) : bearing ? bearingToHeading(bearing) : prev.heading;
+  // Where the bus is drawn right now, versus where the new report + velocity puts it.
+  const [shownX, shownZ] = predictedPos(prev, nowMs);
+  const next: Track = { fixX: x, fixZ: z, fixT, vx, vz, offX: 0, offZ: 0, offT: nowMs, heading };
+  const [newX, newZ] = predictedPos(next, nowMs);
+  next.offX = shownX - newX; next.offZ = shownZ - newZ;
+  return next;
+}
+
+// Turn toward the target heading along the shortest way round.
+function turnToward(current: number, target: number, dt: number): number {
+  const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+  return current + diff * Math.min(1, dt * 4);
 }
 
 interface ArrivalNotif  { id: string; stop: string; desc: string; line: string; color: number; time: string }
@@ -356,11 +447,19 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(W, H);
-    renderer.setClearColor(0x000814);
+    renderer.setClearColor(C.ground);
     mount.appendChild(renderer.domElement);
 
+    // HTML layer for the stop signs: crisp text, untouched by bloom and post-processing
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(W, H);
+    Object.assign(labelRenderer.domElement.style, {
+      position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '6',
+    });
+    mount.appendChild(labelRenderer.domElement);
+
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000814, 0.0018);
+    scene.fog = new THREE.FogExp2(C.ground, 0.0018);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 1200);
@@ -378,23 +477,37 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(1000, 1000),
-      new THREE.MeshBasicMaterial({ color: 0x000610 }),
+      new THREE.MeshBasicMaterial({ color: C.ground }),
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.01;
     scene.add(ground);
 
-    const grid = new THREE.GridHelper(1000, 1000, 0x002233, 0x001122);
+    const grid = new THREE.GridHelper(1000, 1000, C.gridMajor, C.gridMinor);
     scene.add(grid);
 
+    const openStop = (group: THREE.Group) => {
+      const { stopLabel, stopDesc, stopColor, quayId } = group.userData;
+      setStopPanel({ label: stopLabel, desc: stopDesc, color: stopColor, departures: [], loading: !!quayId });
+      if (quayId) {
+        fetchStopDepartures(quayId)
+          .then(deps => setStopPanel(p => p ? { ...p, loading: false, departures: deps } : null))
+          .catch(() => setStopPanel(p => p ? { ...p, loading: false } : null));
+      }
+    };
+
+    const signs: { obj: CSS2DObject; kind: StopKind }[] = [];
     STOPS.forEach(stop => {
-      const marker = stopMarker(stop.label, stop.color);
+      const marker = stopMarker(stop.color);
       marker.position.set(stop.x, 0, stop.z);
       marker.userData.stopLabel = stop.label;
       marker.userData.stopDesc  = stop.desc;
       marker.userData.stopColor = stop.color;
       marker.userData.quayId    = (stop as any).quayId ?? null;
       marker.traverse(obj => { if (obj.userData.isPulse) pulseMeshes.current.push(obj as THREE.Mesh); });
+      const sign = stopSign(stop, () => openStop(marker));
+      marker.add(sign);
+      signs.push({ obj: sign, kind: stop.kind });
       stopMeshes.current.push(marker);
       scene.add(marker);
     });
@@ -407,11 +520,11 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       EXTRA_STOPS.forEach((s, i) => { pos[i*3] = s.x; pos[i*3+1] = 0.5; pos[i*3+2] = s.z; });
       const ptGeo = new THREE.BufferGeometry();
       ptGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      scene.add(new THREE.Points(ptGeo, new THREE.PointsMaterial({ color: 0x006688, size: 2.5, sizeAttenuation: true })));
+      scene.add(new THREE.Points(ptGeo, new THREE.PointsMaterial({ color: C.extraStop, size: 2.5, sizeAttenuation: true })));
 
       // Ground rings
       const ringGeo = new THREE.RingGeometry(0.22, 0.26, 16);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x004455, side: THREE.DoubleSide });
+      const ringMat = new THREE.MeshBasicMaterial({ color: C.extraRing, side: THREE.DoubleSide });
       const rings   = new THREE.InstancedMesh(ringGeo, ringMat, N);
       rings.instanceMatrix.needsUpdate = true;
       scene.add(rings);
@@ -421,7 +534,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), 1.3, 0.4, 0.0));
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), 0.6, 0.4, 0.1));
     const braindance = new ShaderPass(BraindanceShader);
     composer.addPass(braindance);
 
@@ -431,12 +544,45 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
       composer.setSize(w, h);
+      labelRenderer.setSize(w, h);
     };
     window.addEventListener('resize', onResize);
 
+    // Zoomed out: compact signs plus the grey outlying stops. Zoomed in: full signs, grey stops hidden.
+    // The four Lerkendal platforms sit ~30 m apart, so they need a closer zoom before expanding.
+    const SIGN_DETAIL_DIST    = 160;
+    const PLATFORM_DETAIL_DIST = 70;
+    let signsZoom = -1;
+
+    const demoBus = busMarker('DEMO', C.liveBus);
+    demoBus.visible = false;
+    scene.add(demoBus);
+    let demoLeg = 0, demoDir = 1, demoProgress = 0, demoDwell = DEMO_DWELL;
+    let lastFrame = performance.now();
+    const stepDemo = (dt: number) => {
+      if (demoDwell > 0) demoDwell -= dt;
+      else {
+        const a = DEMO_ROUTE[demoLeg], b = DEMO_ROUTE[demoLeg + demoDir];
+        demoProgress += DEMO_SPEED * dt / Math.hypot(b.x - a.x, b.z - a.z);
+        if (demoProgress >= 1) {
+          demoProgress = 0;
+          demoLeg += demoDir;
+          demoDwell = DEMO_DWELL;
+          if (demoLeg === 0 || demoLeg === DEMO_ROUTE.length - 1) demoDir = -demoDir;
+          const s = DEMO_ROUTE[demoLeg];
+          const time = new Date().toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' });
+          setArrivals(prev => [...prev.slice(-9), { id: `demo:${Date.now()}`, stop: s.label, desc: s.desc, line: 'DEMO', color: s.color, time }]);
+        }
+      }
+      const a = DEMO_ROUTE[demoLeg], b = DEMO_ROUTE[demoLeg + demoDir];
+      demoBus.position.set(a.x + (b.x - a.x) * demoProgress, 0, a.z + (b.z - a.z) * demoProgress);
+      demoBus.rotation.y = -Math.atan2(b.x - a.x, -(b.z - a.z));
+    };
+
+    let alive = true;
     let t = 0;
     const animate = () => {
-      if (!activeRef.current) return;
+      if (!alive || !activeRef.current) return;
       requestAnimationFrame(animate);
       t += 0.016;
       braindance.uniforms.time.value = t;
@@ -468,21 +614,33 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       }
       const camDist = camera.position.length();
       const busScale = Math.max(1.5, camDist / 100);
+      const frameNow = performance.now();
+      const dt = Math.min((frameNow - lastFrame) / 1000, 1); // generous cap: keeps pace in throttled tabs
+      lastFrame = frameNow;
+      const wallNow = Date.now(); // same clock as the report times
       for (const [, group] of vehicleMeshes.current) {
         group.scale.setScalar(busScale);
+        const track = group.userData.track as Track | undefined;
+        if (!track) continue;
+        const [x, z] = predictedPos(track, wallNow);
+        group.position.set(x, 0, z);
+        group.rotation.y = turnToward(group.rotation.y, track.heading, dt);
       }
+      demoBus.visible = vehicleMeshes.current.size === 0;
+      if (demoBus.visible) { stepDemo(dt); demoBus.scale.setScalar(busScale); }
       const stopScale = Math.max(1, camDist / 80);
-      const stopLabelBoost = Math.max(1, camDist / 100);
-      for (const group of stopMeshes.current) {
-        group.scale.setScalar(stopScale);
-        for (const child of group.children) {
-          if (child instanceof THREE.Sprite) {
-            const s = stopLabelBoost / stopScale;
-            child.scale.set(3.5 * s, 1.0 * s, 1);
-          }
+      for (const group of stopMeshes.current) group.scale.setScalar(stopScale);
+      const viewDist = camera.position.distanceTo(controls.target);
+      const zoom = viewDist > SIGN_DETAIL_DIST ? 0 : viewDist > PLATFORM_DETAIL_DIST ? 1 : 2;
+      if (zoom !== signsZoom) {
+        signsZoom = zoom;
+        for (const { obj, kind } of signs) {
+          obj.element.classList.toggle('is-far', kind === 'platform' ? zoom < 2 : zoom < 1);
+          obj.visible = kind !== 'minor' || zoom === 0; // grey stops: overview only
         }
       }
       composer.render();
+      labelRenderer.render(scene, camera);
     };
     animate();
 
@@ -496,23 +654,17 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
-      const hitObjects = stopMeshes.current.flatMap(g => g.children.filter(c => c instanceof THREE.Mesh || c instanceof THREE.Sprite));
+      const hitObjects = stopMeshes.current.flatMap(g => g.children.filter(c => c instanceof THREE.Mesh));
       const hits = raycaster.intersectObjects(hitObjects);
       if (hits.length === 0) { setStopPanel(null); return; }
-      const group = hits[0].object.parent as THREE.Group;
-      const { stopLabel, stopDesc, stopColor, quayId } = group.userData;
-      setStopPanel({ label: stopLabel, desc: stopDesc, color: stopColor, departures: [], loading: !!quayId });
-      if (quayId) {
-        fetchStopDepartures(quayId)
-          .then(deps => setStopPanel(p => p ? { ...p, loading: false, departures: deps } : null))
-          .catch(() => setStopPanel(p => p ? { ...p, loading: false } : null));
-      }
+      openStop(hits[0].object.parent as THREE.Group);
     };
     mount.addEventListener('mousedown', onMouseDown);
     mount.addEventListener('click', onClick);
 
     return () => {
       activeRef.current = false;
+      alive = false; // stops this effect's loop even if a remount turns activeRef back on
       sceneRef.current  = null;
       cameraRef.current = null;
       controlsRef.current = null;
@@ -522,6 +674,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       controls.dispose();
       renderer.dispose();
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
+      if (mount.contains(labelRenderer.domElement)) mount.removeChild(labelRenderer.domElement);
       vehicleMeshes.current.clear();
       pulseMeshes.current = [];
       stopMeshes.current  = [];
@@ -554,12 +707,12 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
             geo.computeBoundingSphere();
             scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color, transparent, opacity })));
           };
-          addLines(bright, 0x00ffcc, false, 1);
-          addLines(mid,    0x008855, true,  0.6);
-          addLines(dim,    0x003322, true,  0.25);
+          addLines(bright, C.roadMain,  false, 1);
+          addLines(mid,    C.roadMid,   true,  0.85);
+          addLines(dim,    C.roadMinor, true,  0.7);
 
-          for (const buf of civic) addLines(buf, RED, true, 0.28);
-          for (const buf of resid) addLines(buf, 0x006666, true, 0.55);
+          for (const buf of civic) addLines(buf, C.civic, true, 0.95);
+          for (const buf of resid) addLines(buf, C.building, true, 0.85);
 
           worker?.terminate();
           worker = null;
@@ -590,20 +743,21 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         for (const v of vehicles) {
           seen.add(v.id);
           const [x, z] = gpsToScene(v.lat, v.lon);
-          const color = v.monitored ? 0x4c0000 : 0xff7700;
-          if (vehicleMeshes.current.has(v.id)) {
-            const mesh = vehicleMeshes.current.get(v.id)!;
-            mesh.position.set(x, 0, z);
-            mesh.rotation.y = headingToNearestStop(x, z);
-            mesh.userData.line = v.line;
-          } else {
-            const mesh = busMarker(v.line || '?', color);
-            mesh.position.set(x, 0, z);
-            mesh.rotation.y = headingToNearestStop(x, z);
-            mesh.userData.line = v.line;
+          const color = v.monitored ? C.liveBus : C.unmonBus;
+          let mesh = vehicleMeshes.current.get(v.id);
+          if (!mesh) {
+            mesh = busMarker(v.line || '?', color);
             scene.add(mesh);
             vehicleMeshes.current.set(v.id, mesh);
           }
+          // The render loop moves the bus; here we only feed it the new report.
+          const track = trackFromReport(mesh.userData.track as Track | undefined, x, z, v.recordedAt, v.bearing, now);
+          if (!mesh.userData.track) {
+            mesh.position.set(x, 0, z);
+            mesh.rotation.y = track.heading;
+          }
+          mesh.userData.track = track;
+          mesh.userData.line = v.line;
 
           for (const stop of NOTIFY_STOPS) {
             if (Math.hypot(x - stop.x, z - stop.z) < ARRIVE_DIST) {
@@ -619,7 +773,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
           }
         }
         for (const [id, mesh] of vehicleMeshes.current) {
-          if (!seen.has(id)) { scene.remove(mesh); vehicleMeshes.current.delete(id); }
+          if (!seen.has(id)) { disposeMarker(mesh); vehicleMeshes.current.delete(id); }
         }
         const activeLines = [...new Set(
           [...vehicleMeshes.current.values()]
@@ -660,10 +814,10 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
 
     const ringMesh = new THREE.Mesh(
       new THREE.TorusGeometry(1.2, 0.032, 8, 64),
-      new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.35 }),
+      new THREE.MeshBasicMaterial({ color: C.platform, transparent: true, opacity: 0.35 }),
     );
     ringMesh.rotation.x = Math.PI / 2;
-    const gyroGrid = new THREE.GridHelper(120, 100, 0x002233, 0x001122);
+    const gyroGrid = new THREE.GridHelper(120, 100, C.gridMajor, C.gridMinor);
 
     const tickGroup = new THREE.Group();
     for (let i = 0; i < 16; i++) {
@@ -675,16 +829,16 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute([sa*r0,0,-ca*r0, sa*r1,0,-ca*r1], 3));
       tickGroup.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
-        color: major ? 0x00ffcc : 0x006644, transparent: true, opacity: major ? 0.75 : 0.35,
+        color: major ? C.platform : C.extraRing, transparent: true, opacity: major ? 0.75 : 0.35,
       })));
     }
 
     const dotGroup = new THREE.Group();
     ([
-      [0,          0xff0088, 0.095],
-      [Math.PI/2,  0x00ffcc, 0.06],
-      [Math.PI,    0x00ffcc, 0.06],
-      [-Math.PI/2, 0x00ffcc, 0.06],
+      [0,          C.liveBus,  0.095],
+      [Math.PI/2,  C.platform, 0.06],
+      [Math.PI,    C.platform, 0.06],
+      [-Math.PI/2, C.platform, 0.06],
     ] as [number, number, number][]).forEach(([a, color, r]) => {
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(r, 8, 8),
@@ -700,7 +854,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
 
     const spinRing = new THREE.Mesh(
       new THREE.TorusGeometry(1.2, 0.028, 8, 64),
-      new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 0.45 }),
+      new THREE.MeshBasicMaterial({ color: C.amber, transparent: true, opacity: 0.45 }),
     );
     spinRing.rotation.y = Math.PI / 2;
     compassGroup.add(spinRing);
@@ -737,17 +891,17 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         inset: 0, 
         pointerEvents: 'none',
         backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-        opacity: 0.2, 
+        opacity: 0.12,
         mixBlendMode: 'overlay',
-        zIndex: 20 
+        zIndex: 5,
       }} />
 
       <div style={{
         position: 'absolute', top: '0.75rem', left: '0.75rem',
         fontFamily: 'monospace', fontSize: isMobile ? '0.58rem' : '0.65rem', letterSpacing: '0.08em',
         color: 'var(--portfolio-blue)', background: 'var(--portfolio-surface)',
-        border: '1px solid #00ffcc33', padding: isMobile ? '0.35rem 0.5rem' : '0.5rem 0.8rem',
-        lineHeight: 1.8, pointerEvents: 'none',
+        border: '1px solid var(--portfolio-line)', padding: isMobile ? '0.35rem 0.5rem' : '0.5rem 0.8rem',
+        lineHeight: 1.8, pointerEvents: 'none', zIndex: 10,
         minWidth: isMobile ? 'auto' : '160px',
         maxWidth: isMobile ? 'calc(50vw - 1rem)' : undefined,
       }}>
@@ -758,6 +912,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
           </span>
         </div>
         <div><span style={{ opacity: 0.5 }}>BUSES </span>{busStatus.count}</div>
+        {busStatus.count === 0 && <div style={{ color: hex(C.liveBus) }}>DEMO BUS · no live buses</div>}
         {busStatus.loadMs !== null && !isMobile && <div><span style={{ opacity: 0.5 }}>LOAD </span>{busStatus.loadMs}ms</div>}
         {busStatus.lastUpdated && <div><span style={{ opacity: 0.5 }}>UPD </span>{busStatus.lastUpdated}</div>}
         {busStatus.activeLines.length > 0 && (
@@ -769,8 +924,8 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
                 key={l}
                 style={{
                   flex: '0 1 auto',
-                  background: '#ffdd0022',
-                  border: '1px solid #ffdd0055',
+                  background: 'rgba(240,160,80,0.12)',
+                  border: '1px solid rgba(240,160,80,0.4)',
                   color: 'var(--portfolio-amber)',
                   padding: '0 4px'
                 }}
@@ -788,19 +943,18 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         <div style={{
           position: 'absolute', top: '0.75rem', right: '0.75rem',
           fontFamily: 'monospace', fontSize: '0.65rem', letterSpacing: '0.07em',
-          background: 'rgba(0,4,12,0.88)', border: '1px solid #00ffcc33',
+          background: 'rgba(18,25,35,0.92)', border: '1px solid var(--portfolio-line)',
           pointerEvents: 'none', zIndex: 10, minWidth: '260px',
         }}>
-          <div style={{ padding: '0.3rem 0.6rem', opacity: 0.5, borderBottom: '1px solid #00ffcc22', textTransform: 'uppercase' }}>arrivals</div>
+          <div style={{ padding: '0.3rem 0.6rem', opacity: 0.5, borderBottom: '1px solid var(--portfolio-line)', textTransform: 'uppercase' }}>arrivals</div>
           <div style={{ display: 'grid', gridTemplateColumns: '3rem 2.5rem 1fr 5rem', gap: '0 0.5rem', padding: '0.2rem 0.6rem' }}>
             {arrivals.map((a, i) => {
-              const hex = '#' + a.color.toString(16).padStart(6, '0');
               const isNewest = i === arrivals.length - 1;
               return (
                 <Fragment key={a.id}>
                   <span style={{ color: '#ffffff', opacity: isNewest ? 1 : 0.6 }}>{a.time}</span>
                   <span style={{ color: 'var(--portfolio-amber)', opacity: isNewest ? 1 : 0.6 }}>{a.line}</span>
-                  <span style={{ color: hex, opacity: isNewest ? 1 : 0.6, textTransform: 'uppercase' }}>{a.stop}</span>
+                  <span style={{ color: hex(a.color), opacity: isNewest ? 1 : 0.6, textTransform: 'uppercase' }}>{a.stop}</span>
                   <span style={{ color: '#cce8ff', opacity: isNewest ? 0.8 : 0.4, fontSize: '0.58rem' }}>{a.desc}</span>
                 </Fragment>
               );
@@ -817,11 +971,11 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
           right: isMobile ? 0 : 'auto',
           transform: isMobile ? 'none' : 'translateX(-50%)',
           fontFamily: 'monospace', fontSize: '0.65rem', letterSpacing: '0.07em',
-          background: 'rgba(0,4,12,0.95)', border: `1px solid #${ stopPanel.color.toString(16).padStart(6,'0') }55`,
+          background: 'rgba(18,25,35,0.96)', border: `1px solid ${hex(stopPanel.color)}88`,
           minWidth: isMobile ? 'unset' : '280px', pointerEvents: 'auto', zIndex: 20,
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.7rem', borderBottom: `1px solid #${ stopPanel.color.toString(16).padStart(6,'0') }33` }}>
-            <span style={{ color: '#' + stopPanel.color.toString(16).padStart(6,'0'), textTransform: 'uppercase' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.7rem', borderBottom: `1px solid ${hex(stopPanel.color)}44` }}>
+            <span style={{ color: hex(stopPanel.color), textTransform: 'uppercase' }}>
               {stopPanel.label}{stopPanel.desc ? ` · ${stopPanel.desc}` : ''}
             </span>
             <span style={{ cursor: 'pointer', opacity: 0.5, padding: '0 0.25rem' }} onClick={() => setStopPanel(null)}>×</span>
@@ -848,7 +1002,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         position: 'absolute', bottom: '1.2rem', left: '1.2rem',
         display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem',
         transform: isMobile ? 'scale(0.65)' : undefined,
-        transformOrigin: 'bottom left',
+        transformOrigin: 'bottom left', zIndex: 10,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
           <div
@@ -856,8 +1010,8 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
             style={{
               width: 96, height: 96,
               borderRadius: '50%', overflow: 'hidden',
-              background: 'rgba(0,4,12,0.85)',
-              border: '1px solid rgba(0,255,204,0.2)',
+              background: 'rgba(11,15,22,0.85)',
+              border: '1px solid var(--portfolio-line)',
               pointerEvents: 'none',
             }}
           />
@@ -873,7 +1027,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
             style={{
               fontFamily: 'monospace', fontSize: '0.58rem', letterSpacing: '0.1em',
               color: 'var(--portfolio-blue)', background: 'var(--portfolio-surface)',
-              border: '1px solid #00ffcc33', padding: '0.2rem 0.7rem',
+              border: '1px solid var(--portfolio-line)', padding: '0.2rem 0.7rem',
               cursor: 'pointer', textTransform: 'uppercase', pointerEvents: 'auto',
             }}
           >
@@ -893,12 +1047,22 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       {!isMobile && (
       <div style={{
         position: 'absolute', bottom: '1.2rem', right: '1.2rem',
-        fontFamily: 'monospace', fontSize: '1.0rem',
-        opacity: 0.55, letterSpacing: '0.08em', lineHeight: 2,
-        pointerEvents: 'none', textAlign: 'right',
+        fontFamily: 'monospace', fontSize: '0.7rem', color: 'var(--portfolio-text)',
+        letterSpacing: '0.05em', lineHeight: 1.7, padding: '0.35rem 0.7rem',
+        display: 'grid', gridTemplateColumns: 'auto auto', columnGap: '1rem',
+        background: 'rgba(18,25,35,0.85)', border: '1px solid var(--portfolio-line)',
+        pointerEvents: 'none', zIndex: 10,
       }}>
-        <div style={{ color: '#ff0000' }}>▲ live bus</div>
-        <div style={{ color: 'var(--portfolio-amber)' }}>▲ unmonitored bus</div>
+        {([
+          ['▲', C.liveBus,  'live bus'],
+          ['▲', C.unmonBus, 'unmonitored bus'],
+          ['■', C.platform, 'Lerkendal platform'],
+          ['■', C.approach, 'approaching stop'],
+          ['■', C.depart,   'departing stop'],
+          ['■', C.minorStop,'other stop'],
+        ] as const).map(([glyph, color, label]) => (
+          <div key={label}><span style={{ color: hex(color), marginRight: '0.5rem' }}>{glyph}</span>{label}</div>
+        ))}
       </div>
       )}
     </div>

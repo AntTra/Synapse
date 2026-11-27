@@ -72,7 +72,7 @@ export interface Leg {
   toEstimatedCall?: { expectedArrivalTime: string };
 }
 export interface TripPattern { duration: number; legs: Leg[] }
-export interface VehicleEntry { id: string; line: string; lat: number; lon: number; bearing: number; monitored: boolean }
+export interface VehicleEntry { id: string; line: string; lat: number; lon: number; bearing: number; monitored: boolean; recordedAt: number }
 
 export async function fetchDepartures(): Promise<DepartureData> {
   const res  = await fetch(GQL, { method: 'POST', headers: HEADERS, body: JSON.stringify({ query: DEPARTURES_QUERY }) });
@@ -120,12 +120,20 @@ function universalGet(source: string, tag: string): string {
   return m ? m[1].trim() : '';
 }
 
+export const VEHICLES_URL = 'https://api.entur.io/realtime/v1/rest/vm?datasetId=ATB';
+
+// Browser side: Entur's vehicle feed sends no CORS headers, so the page asks our own
+// /api/vehicles route, which fetches and parses the feed on the server.
 export async function fetchVehicles(): Promise<VehicleEntry[]> {
+  const res = await fetch('/api/vehicles', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`vehicle feed ${res.status}`);
+  return res.json();
+}
+
+// Server side: SIRI VM XML → buses near Lerkendal.
+export function parseVehicles(xml: string): VehicleEntry[] {
   const CENTER_LAT = 63.4105, CENTER_LON = 10.4045;
   const FILTER_LAT = 0.010,  FILTER_LON  = 0.022;
-
-  const res = await fetch('https://api.entur.io/realtime/v1/rest/vm?datasetId=ATB', { cache: 'no-store' });
-  const xml = await res.text();
   const activityRx = /<[^>]*VehicleActivity[^>]*>([\s\S]*?)<\/[^>]*VehicleActivity[^>]*>/g;
   const out: VehicleEntry[] = [];
   let m;
@@ -142,7 +150,14 @@ export async function fetchVehicles(): Promise<VehicleEntry[]> {
       lat, lon,
       bearing:   parseFloat(universalGet(block, 'Bearing')) || 0,
       monitored: universalGet(block, 'Monitored').includes('true'),
+      recordedAt: Date.parse(universalGet(block, 'RecordedAtTime')) || 0, // ms epoch; 0 if missing
     });
   }
-  return out;
+  // The feed can hold several (older) reports for one bus: keep only the newest per vehicle.
+  const newest = new Map<string, VehicleEntry>();
+  for (const v of out) {
+    const seen = newest.get(v.id);
+    if (!seen || v.recordedAt > seen.recordedAt) newest.set(v.id, v);
+  }
+  return [...newest.values()];
 }
