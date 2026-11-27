@@ -311,8 +311,9 @@ function busMarker(line: string, color: number): THREE.Group {
   el.textContent = line;
   el.style.setProperty('--bus', hex(color));
   const badge = new CSS2DObject(el);
-  badge.center.set(0.5, 0); // hangs below the bus: stop signs sit above their stops, so they never collide
-  badge.position.set(0, 0, 0);
+  badge.center.set(0.5, 1); // sits above the arrow, pointing down at it
+  badge.position.set(0, 1.2, 0);
+  group.userData.badgeEl = el; // for unstackBadges()
   group.add(badge);
   return group;
 }
@@ -335,19 +336,21 @@ function headingToNearestStop(bx: number, bz: number): number {
 
 // ── Bus motion between Entur reports ───────────────────────────────────────
 // Entur may only be polled every 25 s. When a report lands, the bus glides from where it is
-// drawn to the reported position over one poll interval, arriving as the next report comes in.
-// It runs one interval behind, but never guesses, so it can't overshoot a stop or a corner.
+// drawn to the reported position in GLIDE_MS, then waits there for the next report.
+// It never guesses ahead, so it can't overshoot a stop or a corner.
 interface Track {
   fromX: number; fromZ: number; toX: number; toZ: number;
   start: number;   // when this glide began (ms epoch)
   fixT: number;    // report time of the target, to ignore a repeated report
   heading: number; // target rotation.y
 }
-const MIN_MOVE = 2; // < 6 m between reports = standing still: keep the old heading
+const MIN_MOVE = 2;     // < 6 m between reports = standing still: keep the old heading
+const GLIDE_MS = 1000;  // how long a bus takes to move to its newly reported position
 
 function trackPos(tr: Track, nowMs: number): [number, number] {
-  const k = Math.min(1, Math.max(0, (nowMs - tr.start) / VEHICLE_POLL_MS));
-  return [tr.fromX + (tr.toX - tr.fromX) * k, tr.fromZ + (tr.toZ - tr.fromZ) * k];
+  const k = Math.min(1, Math.max(0, (nowMs - tr.start) / GLIDE_MS));
+  const e = k * (2 - k); // ease-out: quick start, gentle arrival
+  return [tr.fromX + (tr.toX - tr.fromX) * e, tr.fromZ + (tr.toZ - tr.fromZ) * e];
 }
 
 const bearingToHeading = (deg: number) => -deg * Math.PI / 180;           // compass bearing → rotation.y
@@ -481,6 +484,33 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
     };
 
     const signs: { obj: CSS2DObject; kind: StopKind }[] = [];
+
+    // Bus labels never cover stop signs: a label overlapping a visible sign is lifted to just
+    // above it (CSS `translate`, which CSS2DRenderer's per-frame `transform` doesn't overwrite).
+    // The lift eases toward its target so labels glide instead of hopping.
+    const unstackBadges = () => {
+      const signRects = signs
+        .filter(({ obj }) => obj.element.style.display !== 'none' && !obj.element.classList.contains('is-hidden'))
+        .map(({ obj }) => obj.element.getBoundingClientRect());
+      for (const group of vehicleMeshes.current.values()) {
+        const el = group.userData.badgeEl as HTMLElement | undefined;
+        if (!el || el.style.display === 'none') continue;
+        const r = el.getBoundingClientRect();
+        const shown = Number(el.dataset.lift || 0);
+        const top = r.top + shown, bottom = r.bottom + shown; // where the label sits without a lift
+        let target = 0;
+        for (let pass = 0; pass < 3; pass++) { // a lift can land on another sign: re-check a few times
+          const hit = signRects.find(sg => r.left < sg.right && r.right > sg.left && top - target < sg.bottom && bottom - target > sg.top);
+          if (!hit) break;
+          target = bottom - hit.top + 3;
+        }
+        const next = Math.abs(target - shown) < 0.5 ? target : shown + (target - shown) * 0.3;
+        if (next !== shown) {
+          el.dataset.lift = String(next);
+          el.style.translate = next ? `0 ${-next}px` : '';
+        }
+      }
+    };
     STOPS.forEach(stop => {
       const marker = stopMarker(stop.color);
       marker.position.set(stop.x, 0, stop.z);
@@ -623,6 +653,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       }
       composer.render();
       labelRenderer.render(scene, camera);
+      unstackBadges();
     };
     animate();
 
