@@ -311,8 +311,8 @@ function busMarker(line: string, color: number): THREE.Group {
   el.textContent = line;
   el.style.setProperty('--bus', hex(color));
   const badge = new CSS2DObject(el);
-  badge.center.set(0.5, 1);
-  badge.position.set(0, 1.2, 0);
+  badge.center.set(0.5, 0); // hangs below the bus: stop signs sit above their stops, so they never collide
+  badge.position.set(0, 0, 0);
   group.add(badge);
   return group;
 }
@@ -333,26 +333,21 @@ function headingToNearestStop(bx: number, bz: number): number {
   return -Math.atan2(best.x - bx, -(best.z - bz));
 }
 
-// ── Bus motion between Entur reports (dead reckoning) ──────────────────────
-// Entur may only be polled every 25 s. Between reports each bus keeps moving at the
-// velocity measured from its last two reports; when a new report lands, the gap between
-// where we drew the bus and where it really is gets eased out instead of snapped.
+// ── Bus motion between Entur reports ───────────────────────────────────────
+// Entur may only be polled every 25 s. When a report lands, the bus glides from where it is
+// drawn to the reported position over one poll interval, arriving as the next report comes in.
+// It runs one interval behind, but never guesses, so it can't overshoot a stop or a corner.
 interface Track {
-  fixX: number; fixZ: number; fixT: number; // last report: scene position + time (ms epoch)
-  vx: number; vz: number;                   // estimated velocity, scene units per second
-  offX: number; offZ: number; offT: number; // correction being eased out, and when it started
-  heading: number;                          // target rotation.y
+  fromX: number; fromZ: number; toX: number; toZ: number;
+  start: number;   // when this glide began (ms epoch)
+  fixT: number;    // report time of the target, to ignore a repeated report
+  heading: number; // target rotation.y
 }
-const MAX_PREDICT_S = 30;      // stop extrapolating if a report is late
-const MIN_MOVE      = 2;       // < 6 m between reports = standing still
-const MAX_SPEED     = 25 / 3;  // 25 m/s in scene units: ignore GPS jumps above this
-const EASE_MS       = 3000;    // how long a correction takes to fade (slower = less abrupt slide-back after an unseen stop)
+const MIN_MOVE = 2; // < 6 m between reports = standing still: keep the old heading
 
-function predictedPos(tr: Track, nowMs: number): [number, number] {
-  const e = Math.min(Math.max((nowMs - tr.fixT) / 1000, 0), MAX_PREDICT_S);
-  const k = Math.max(0, 1 - (nowMs - tr.offT) / EASE_MS);
-  const ease = k * k * (3 - 2 * k); // smoothstep: correction fades gently
-  return [tr.fixX + tr.vx * e + tr.offX * ease, tr.fixZ + tr.vz * e + tr.offZ * ease];
+function trackPos(tr: Track, nowMs: number): [number, number] {
+  const k = Math.min(1, Math.max(0, (nowMs - tr.start) / VEHICLE_POLL_MS));
+  return [tr.fromX + (tr.toX - tr.fromX) * k, tr.fromZ + (tr.toZ - tr.fromZ) * k];
 }
 
 const bearingToHeading = (deg: number) => -deg * Math.PI / 180;           // compass bearing → rotation.y
@@ -362,22 +357,12 @@ function trackFromReport(prev: Track | undefined, x: number, z: number, reportT:
   const fixT = reportT || nowMs;
   if (!prev) {
     const heading = bearing ? bearingToHeading(bearing) : headingToNearestStop(x, z);
-    return { fixX: x, fixZ: z, fixT, vx: 0, vz: 0, offX: 0, offZ: 0, offT: 0, heading };
+    return { fromX: x, fromZ: z, toX: x, toZ: z, start: nowMs, fixT, heading };
   }
-  if (fixT <= prev.fixT) return prev; // same report as last poll: keep predicting
-  const dt = (fixT - prev.fixT) / 1000;
-  let vx = (x - prev.fixX) / dt, vz = (z - prev.fixZ) / dt;
-  const moved = Math.hypot(x - prev.fixX, z - prev.fixZ);
-  const speed = moved / dt;
-  if (moved < MIN_MOVE) { vx = 0; vz = 0; }
-  else if (speed > MAX_SPEED) { vx *= MAX_SPEED / speed; vz *= MAX_SPEED / speed; }
-  const heading = vx || vz ? velocityHeading(vx, vz) : bearing ? bearingToHeading(bearing) : prev.heading;
-  // Where the bus is drawn right now, versus where the new report + velocity puts it.
-  const [shownX, shownZ] = predictedPos(prev, nowMs);
-  const next: Track = { fixX: x, fixZ: z, fixT, vx, vz, offX: 0, offZ: 0, offT: nowMs, heading };
-  const [newX, newZ] = predictedPos(next, nowMs);
-  next.offX = shownX - newX; next.offZ = shownZ - newZ;
-  return next;
+  if (fixT <= prev.fixT) return prev; // same report as last poll: let the current glide finish
+  const [fromX, fromZ] = trackPos(prev, nowMs); // start from where the bus is drawn: no jump
+  const moved = Math.hypot(x - fromX, z - fromZ) >= MIN_MOVE;
+  return { fromX, fromZ, toX: x, toZ: z, start: nowMs, fixT, heading: moved ? velocityHeading(x - fromX, z - fromZ) : prev.heading };
 }
 
 // Turn toward the target heading along the shortest way round.
@@ -619,7 +604,7 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
         group.scale.setScalar(busScale);
         const track = group.userData.track as Track | undefined;
         if (!track) continue;
-        const [x, z] = predictedPos(track, wallNow);
+        const [x, z] = trackPos(track, wallNow);
         group.position.set(x, 0, z);
         group.rotation.y = turnToward(group.rotation.y, track.heading, dt);
       }
@@ -754,13 +739,15 @@ export default function CyberpunkMap({ refreshKey }: { refreshKey?: number }) {
       setNextVehicleAt(Date.now() + VEHICLE_POLL_MS);
     };
     const fetchOnce = async () => {
-      if (!activeRef.current) return;
-      const scene = sceneRef.current;
-      if (!scene) return;
+      if (!activeRef.current || !sceneRef.current) return;
       setBusStatus(s => ({ ...s, state: 'fetching' }));
       const t0 = Date.now();
       try {
         const vehicles = await fetchVehicles();
+        // Read the scene after the await: a remount meanwhile (React dev double-mount, view
+        // switch) replaces it, and buses added to the old one would never be drawn.
+        const scene = sceneRef.current;
+        if (stopped || !scene) return;
         const loadMs = Date.now() - t0;
         const seen = new Set<string>();
         const now  = Date.now();
