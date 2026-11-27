@@ -56,3 +56,18 @@
 .home-title { font-size: clamp(1.1rem, 2.4vw, 1.75rem); }
 .home-focus { max-width: 44ch; margin: .65rem 0 1.3rem; line-height: 1.6; color: #c8d2dd; }
 .home-projects { color: var(--portfolio-blue); background: var(--portfolio-bg); border-color: #537389; }
+
+/* Bus map stop signs (CSS2D layer in busroutes/CyberpunkMap.tsx). --sign is set per stop. */
+.stop-sign { --sign: var(--portfolio-blue); display: flex; align-items: stretch; padding: 0; border: 1px solid color-mix(in srgb, var(--sign) 60%, transparent); border-radius: 3px; background: rgba(11,15,22,.92); color: var(--portfolio-text); font: 600 12px/1.25 var(--portfolio-font); text-align: left; white-space: nowrap; cursor: pointer; pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,.55); }
+.stop-sign__badge { display: grid; place-items: center; min-width: 22px; padding: 0 5px; background: var(--sign); color: var(--portfolio-bg); font-size: 13px; font-weight: 700; }
+.stop-sign__badge:empty { min-width: 5px; padding: 0; }
+.stop-sign__text { display: flex; flex-direction: column; padding: 4px 8px; }
+.stop-sign__desc { margin-top: 1px; color: var(--portfolio-muted); font-size: 10.5px; font-weight: 400; }
+.stop-sign[data-kind=minor] { font-size: 11px; }
+.stop-sign:is(:hover, :focus-visible) { border-color: var(--sign); background: #172735; }
+.stop-sign.is-far .stop-sign__desc { display: none; }
+.stop-sign.is-far[data-kind=platform] .stop-sign__text { display: none; } /* cluster of 4: badge only when zoomed out */
+
+/* Bus line-number badge (CSS2D, above each bus arrow). --bus is the bus colour. */
+.bus-badge { z-index: 100000 !important; /* beats CSS2DRenderer's inline distance z-order: buses above stop signs */ position: relative; display: inline-block; min-width: 1.6em; padding: 2px 6px; margin-bottom: 6px; border-radius: 3px; background: var(--bus); color: var(--portfolio-bg); font: 700 13px/1.2 var(--portfolio-font); text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.bus-badge::after { content: ''; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); border: 5px solid transparent; border-bottom: 0; border-top-color: var(--bus); }

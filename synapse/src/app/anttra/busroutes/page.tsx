@@ -260,7 +260,6 @@ export default function BusRoutesPage() {
   const [view,          setView]          = useState<'departures' | 'map'>('departures');
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
   const [refreshing,    setRefreshing]    = useState(false);
-  const isMobile = useIsMobile();
 
   const [, tick] = useState(0);
 
@@ -339,10 +338,14 @@ export default function BusRoutesPage() {
 
   return (
     <main className="transit-view">
-      <div style={{ position: 'relative', zIndex: 2, padding: 'clamp(2rem,5vw,3rem) clamp(1.5rem,6vw,5rem)' }}>
+      <div style={{
+        position: 'relative', zIndex: 2, padding: 'clamp(0.75rem,2vw,1.25rem) clamp(1.5rem,6vw,5rem)', boxSizing: 'border-box',
+        // map view fills exactly the window below the 58px portfolio bar: no page scroll
+        ...(view === 'map' && { height: 'calc(100dvh - 58px)', display: 'flex', flexDirection: 'column' }),
+      }}>
 
         {/* header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
           <span className="transit-label">Trondheim transit</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {lastUpdated && (
@@ -361,8 +364,8 @@ export default function BusRoutesPage() {
         </div>
 
         {/* title row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '1rem', marginBottom: '2.5rem' }}>
-          <h1 style={{ ...MONO, fontSize: 'clamp(2rem, 6vw, 4.5rem)', letterSpacing: '-0.03em', fontWeight: 300, opacity: 0.88, margin: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+          <h1 style={{ ...MONO, fontSize: 'clamp(1.75rem, 4vw, 3rem)', lineHeight: 1, letterSpacing: '-0.03em', fontWeight: 300, opacity: 0.88, margin: 0 }}>
             Lerkendal
           </h1>
           <div style={{ display: 'flex', gap: '0.4rem' }}>
@@ -380,7 +383,7 @@ export default function BusRoutesPage() {
 
         {/* map view */}
         {view === 'map' && (
-          <div style={{ height: isMobile ? 'calc(100svh - 9rem)' : 'calc(100vh - 17rem)', borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ flex: 1, minHeight: 0, borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
             <CyberpunkMap refreshKey={mapRefreshKey} />
           </div>
         )}
