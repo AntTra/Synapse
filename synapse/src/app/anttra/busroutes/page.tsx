@@ -140,7 +140,7 @@ function DepartureRow({ call, hidden }: { call: Call; hidden: boolean }) {
 function QuayPanel({ label, quay, hidden }: { label: string; quay: QuayData; hidden: Set<string> }) {
   const visible = quay.estimatedCalls.filter(c => minsUntil(c.expectedDepartureTime) >= 0 && !hidden.has(c.serviceJourney.line.publicCode));
   return (
-    <div style={{ ...GLASS_CARD, flex: 1, minWidth: 220, overflow: 'hidden' }}>
+    <div style={{ ...GLASS_CARD, minWidth: 0, overflow: 'hidden' }}>
       <div style={{ padding: '1rem 0.9rem 0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <p style={{ ...MONO, fontSize: '0.6rem', opacity: 0.5, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
           Lerkendal {label}
@@ -416,11 +416,11 @@ export default function BusRoutesPage() {
           {fetchErr  && <p style={{ ...MONO, fontSize: '0.75rem', opacity: 0.4 }}>could not reach entur</p>}
           {!data && !fetchErr && <p style={{ ...MONO, fontSize: '0.75rem', opacity: 0.75 }}>fetching...</p>}
 
-          {/* quay panels */}
-          <div style={{ display: 'grid', gridTemplateRows: planning ? '0fr' : '1fr', transition: 'grid-template-rows 0.35s ease', overflow: 'hidden' }}>
+          {/* quay panels: always a 2×2 grid, on desktop and mobile (#8) */}
+          <div style={{ display: 'grid', gridTemplateRows: fromQuery || fromStop ? '0fr' : '1fr', transition: 'grid-template-rows 0.35s ease', overflow: 'hidden' }}>
             <div style={{ minHeight: 0 }}>
               {data && (
-                <div className="pf-stagger" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', paddingBottom: '3rem' }}>
+                <div className="pf-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'clamp(0.5rem, 2vw, 1rem)', paddingBottom: '3rem' }}>
                   {([['1', data.quay1], ['2', data.quay2], ['3', data.quay3], ['4', data.quay4]] as [string, QuayData][])
                     .filter(([q]) => !hiddenQuays.has(q))
                     .map(([q, quay]) => <QuayPanel key={q} label={q} quay={quay} hidden={hidden} />)
