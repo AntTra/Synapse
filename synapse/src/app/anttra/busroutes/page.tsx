@@ -33,6 +33,8 @@ const delayMins = (c: Call)     => Math.round((new Date(c.expectedDepartureTime)
 const fmt       = (iso: string) => new Date(iso).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' });
 const fmtDur    = (s: number)   => `${Math.floor(s / 60)} min`;
 
+const REFRESH_MS = 30_000; // departures auto refresh
+
 const MONO: React.CSSProperties = { fontFamily: 'var(--portfolio-font)' };
 
 const GLASS: React.CSSProperties = {
@@ -125,7 +127,7 @@ function DepartureRow({ call, hidden }: { call: Call; hidden: boolean }) {
       )}
 
       {delay > 0 && (
-        <span style={{ ...MONO, fontSize: mob ? '0.7rem' : '0.65rem', color: '#e05555', opacity: 0.85 }}>+{delay}</span>
+        <span style={{ ...MONO, fontSize: mob ? '0.7rem' : '0.65rem', color: '#e05555', opacity: 0.85 }}>{delay}+</span>
       )}
 
       <span style={{ ...minsStyle(mins), marginLeft: 'auto' }}>
@@ -145,7 +147,7 @@ function QuayPanel({ label, quay, hidden }: { label: string; quay: QuayData; hid
         </p>
         <p style={{ ...MONO, fontSize: '0.68rem', opacity: 0.35 }}>{quay.description}</p>
       </div>
-      <div>
+      <div className="pf-stagger">
         {visible.length === 0
           ? <p style={{ ...MONO, fontSize: '0.72rem', opacity: 0.25, padding: '0.9rem' }}>no departures</p>
           : quay.estimatedCalls.map((c, i) => (
@@ -185,7 +187,7 @@ function StopInput({ placeholder, value, onChange, suggestions, onSelect, onClea
         )}
       </div>
       {open && suggestions.length > 0 && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, ...GLASS, borderRadius: '0 0 6px 6px', borderTop: 'none' }}>
+        <div className="pf-enter" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, ...GLASS, borderRadius: '0 0 6px 6px', borderTop: 'none' }}>
           {suggestions.map(s => (
             <button
               key={s.id}
@@ -261,30 +263,34 @@ export default function BusRoutesPage() {
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
   const [refreshing,    setRefreshing]    = useState(false);
 
-  const [, tick] = useState(0);
+  // Auto refresh: each fetch (automatic or manual) schedules the next one REFRESH_MS later,
+  // so the countdown in the header is always accurate.
+  const [nextRefreshAt, setNextRefreshAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000); // drives the countdown and "x min" labels
+    return () => clearInterval(id);
+  }, []);
 
   const doFetchDepartures = useCallback(async () => {
     try {
       const d = await fetchDepartures();
       setData(d); setLastUpdated(new Date()); setFetchErr(false);
     } catch { setFetchErr(true); }
+    finally { setNextRefreshAt(Date.now() + REFRESH_MS); }
   }, []);
 
+  useEffect(() => { doFetchDepartures(); }, [doFetchDepartures]);
   useEffect(() => {
-    doFetchDepartures();
-    const id = setInterval(doFetchDepartures, 30000);
-    return () => clearInterval(id);
-  }, [doFetchDepartures]);
+    if (nextRefreshAt === null) return;
+    const t = setTimeout(doFetchDepartures, Math.max(0, nextRefreshAt - Date.now()));
+    return () => clearTimeout(t);
+  }, [nextRefreshAt, doFetchDepartures]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true); setMapRefreshKey(k => k + 1);
     await doFetchDepartures(); setRefreshing(false);
   }, [doFetchDepartures]);
-
-  useEffect(() => {
-    const id = setInterval(() => tick(n => n + 1), 30000);
-    return () => clearInterval(id);
-  }, []);
 
   const doSearchStop = useCallback(async (q: string, set: (s: Suggestion[]) => void) => {
     try { set(await searchStop(q)); } catch { set([]); }
@@ -348,9 +354,10 @@ export default function BusRoutesPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
           <span className="transit-label">Trondheim transit</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {lastUpdated && (
-              <span style={{ ...MONO, fontSize: '0.6rem', opacity: 0.3 }}>
+            {lastUpdated && view === 'departures' && (
+              <span style={{ ...MONO, fontSize: '0.6rem', color: 'var(--portfolio-muted)', fontVariantNumeric: 'tabular-nums' }} aria-live="off">
                 {lastUpdated.toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {nextRefreshAt !== null && <> · next in {Math.max(0, Math.ceil((nextRefreshAt - now) / 1000))} s</>}
               </span>
             )}
             <button
@@ -383,13 +390,13 @@ export default function BusRoutesPage() {
 
         {/* map view */}
         {view === 'map' && (
-          <div style={{ flex: 1, minHeight: 0, borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="pf-enter" style={{ flex: 1, minHeight: 0, borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
             <CyberpunkMap refreshKey={mapRefreshKey} />
           </div>
         )}
 
         {/* departures + planner */}
-        {view === 'departures' && <>
+        {view === 'departures' && <div className="pf-enter">
 
           {/* filter chips */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
@@ -412,7 +419,7 @@ export default function BusRoutesPage() {
           <div style={{ display: 'grid', gridTemplateRows: fromQuery || fromStop ? '0fr' : '1fr', transition: 'grid-template-rows 0.35s ease', overflow: 'hidden' }}>
             <div style={{ minHeight: 0 }}>
               {data && (
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', paddingBottom: '3rem' }}>
+                <div className="pf-stagger" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', paddingBottom: '3rem' }}>
                   {([['1', data.quay1], ['2', data.quay2], ['3', data.quay3], ['4', data.quay4]] as [string, QuayData][])
                     .filter(([q]) => !hiddenQuays.has(q))
                     .map(([q, quay]) => <QuayPanel key={q} label={q} quay={quay} hidden={hidden} />)
@@ -487,15 +494,15 @@ export default function BusRoutesPage() {
                 {tripLoading && <p style={{ ...MONO, fontSize: '0.72rem', opacity: 0.2 }}>searching...</p>}
                 {tripErr     && <p style={{ ...MONO, fontSize: '0.72rem', opacity: 0.28 }}>could not fetch routes</p>}
                 {trips && trips.length === 0 && <p style={{ ...MONO, fontSize: '0.72rem', opacity: 0.22 }}>no routes found</p>}
-                {trips && trips.map((p, i) => <TripResult key={i} pattern={p} />)}
+                {trips && <div className="pf-stagger">{trips.map((p, i) => <TripResult key={i} pattern={p} />)}</div>}
               </div>
             </div>
           </div>
 
           <p style={{ ...MONO, fontSize: '0.56rem', opacity: 0.28, letterSpacing: '0.1em', marginTop: '4rem' }}>
-            real-time data · entur · refreshes every 25s
+            real-time data · entur · refreshes every {REFRESH_MS / 1000}s
           </p>
-        </>}
+        </div>}
       </div>
     </main>
   );

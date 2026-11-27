@@ -19,10 +19,11 @@ export default function HeroScene() {
     const h = mount.clientHeight;
 
     const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'width:100%;height:100%;display:block;';
+    // Hidden until the worker has drawn its first frame, then faded in (no blip).
+    canvas.style.cssText = 'width:100%;height:100%;display:block;opacity:0;transition:opacity 1.2s cubic-bezier(.22,1,.36,1);';
     mount.appendChild(canvas);
 
-    // OffscreenCanvas not supported (Safari <16.4) — just fire ready
+    // OffscreenCanvas not supported (Safari <16.4): no scene, just the intro text
     if (typeof canvas.transferControlToOffscreen !== 'function') {
       return () => { if (mount.contains(canvas)) mount.removeChild(canvas); };
     }
@@ -42,7 +43,11 @@ export default function HeroScene() {
         worker.postMessage({type: 'frame', time});
       });
     }
-    worker.onmessage = () => { waiting = false; schedule(); };
+    worker.onmessage = (e: MessageEvent<{ type: string }>) => {
+      if (e.data.type === 'ready') canvas.style.opacity = '1';
+      waiting = false;
+      schedule();
+    };
     worker.postMessage(
       { type: 'init', canvas: offscreen, w, h, dpr, lowPower },
       [offscreen],

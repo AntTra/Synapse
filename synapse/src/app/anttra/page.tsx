@@ -7,7 +7,7 @@ export default function AnttraPage() {
   return (
     <main className="scene-home">
       <HeroScene />
-      <section className="home-intro" aria-labelledby="home-name">
+      <section className="home-intro pf-stagger" aria-labelledby="home-name">
         <p className="home-handle">anttra</p>
         <h1 id="home-name">Anton Tran</h1>
         <p className="home-title">Cybernetics &amp; Robotics</p>
